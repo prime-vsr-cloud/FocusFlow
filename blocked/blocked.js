@@ -1,1 +1,123 @@
-var MSGS=[{e:"🧱",h:"Not today, champ.",s:"Your future self said NO. They were very firm about it."},{e:"🤖",h:"ACCESS DENIED.",s:"The productivity bot has spoken. Resistance is futile."},{e:"🧠",h:"Big Brain Move.",s:"You blocked this. Past-you was smarter than you right now."},{e:"🚪",h:"The door is locked.",s:"You put the lock there. You gave me the key. Not giving it back."},{e:"🏋️",h:"Your discipline called.",s:"It wants you back. It misses you. Go do the thing."},{e:"⛔",h:"NOPE. Absolutely not.",s:"Come back when you've earned it. You know what to do."},{e:"🦾",h:"Stay hard.",s:"The work doesn't do itself. Go back to it."},{e:"🐤",h:"Bock bock bock!",s:"That's the sound of procrastination. Don't be a chicken."}],RLBL={instant:"Instant Block Active",schedule:"Schedule Block Active",time_limit:"Daily Limit Reached",manual:"Manually Blocked"},m=MSGS[Math.floor(Math.random()*MSGS.length)];document.getElementById("emoji").textContent=m.e,document.getElementById("headline").textContent=m.h,document.getElementById("sub").textContent=m.s;var params=new URLSearchParams(window.location.hash.replace("#","")),domain=params.get("domain")||"this site",reason=params.get("reason")||"rule",limit=Number(params.get("limit")||0);document.getElementById("domain-pill").textContent=domain,document.getElementById("bar-reason").textContent=RLBL[reason]||"Block Rule Active";var badge=document.getElementById("badge");badge.textContent="time_limit"===reason&&limit>0?"Daily limit · "+Math.round(limit/60)+" min spent":RLBL[reason]||"Blocked by FocusFlow",badge.className="badge "+(RLBL[reason]?reason:""),document.getElementById("btn-back").addEventListener("click",function(){history.back()}),document.getElementById("btn-set").addEventListener("click",function(){chrome.runtime.openOptionsPage()});
+// FocusFlow v6.5 — Blocked Page
+// New: show rule that fired, "unblock for 5 min" (PIN-gated), last productive site, rotating quotes.
+
+const QUOTES = [
+  '"Future you is watching. Make them proud."',
+  '"Discipline is choosing between what you want now and what you want most."',
+  '"Deep work beats busy work."',
+  '"Small steps every day build big results."',
+  '"You don\'t need more time. You need more focus."',
+  '"What you do today matters more than you think."',
+  '"The obstacle is the way."',
+  '"Suffer the pain of discipline or suffer the pain of regret."',
+  '"Your focus determines your reality."',
+  '"Be so good they cannot ignore you."',
+];
+
+const MSGS = [
+  { e: "🧱", h: "Not today, champ.", s: "Your future self said NO. They were very firm about it." },
+  { e: "🤖", h: "ACCESS DENIED.", s: "The productivity bot has spoken. Resistance is futile." },
+  { e: "🧠", h: "Big Brain Move.", s: "You blocked this. Past-you was smarter than you right now." },
+  { e: "🚪", h: "The door is locked.", s: "You put the lock there. You gave me the key. Not giving it back." },
+  { e: "🏋️", h: "Your discipline called.", s: "It wants you back. It misses you. Go do the thing." },
+  { e: "⛔", h: "NOPE. Absolutely not.", s: "Come back when you earned it. You know what to do." },
+  { e: "🦾", h: "Stay hard.", s: "The work does not do itself. Go back to it." },
+  { e: "🐤", h: "Bock bock bock!", s: "That is the sound of procrastination. Don't be a chicken." },
+];
+
+const RULE_LABELS = {
+  instant: "Instant Block Active",
+  schedule: "Schedule Block Active",
+  time_limit: "Daily Limit Reached",
+  manual: "Manually Blocked",
+  strict: "Strict Focus Mode",
+};
+
+const RULE_DETAIL = {
+  instant: "This site is set to always block.",
+  schedule: "This site is blocked during your scheduled block hours.",
+  time_limit: "You have hit your daily time limit for this site.",
+  manual: "You added this site to your block list.",
+  strict: "You are in Deep Work / Strict Allowlist mode — only your allowlist can pass.",
+};
+
+// ── Parse params ──────────────────────────────────────────────────────────────
+var qs = new URLSearchParams(window.location.search || "");
+var hs = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+function P(k1, k2) { return qs.get(k1) || qs.get(k2) || hs.get(k1) || hs.get(k2) || ""; }
+var blockedDomain = P("domain", "d") || "this site";
+var reason = P("reason", "r") || (qs.get("strict") === "1" ? "strict" : "rule");
+var limit = Number(P("limit", "l") || 0);
+
+// ── Randomise message ─────────────────────────────────────────────────────────
+var m = MSGS[Math.floor(Math.random() * MSGS.length)];
+document.getElementById("emoji").textContent = m.e;
+document.getElementById("headline").textContent = m.h;
+document.getElementById("sub").textContent = m.s;
+document.querySelector(".quote").textContent = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+
+// ── Domain pill & bar reason ──────────────────────────────────────────────────
+document.getElementById("domain-pill").textContent = blockedDomain;
+document.getElementById("bar-reason").textContent = RULE_LABELS[reason] || "Block Rule Active";
+
+// ── Badge — shows which rule fired + any detail ───────────────────────────────
+function formatTime12(timeStr) {
+  if (!timeStr) return "";
+  const [hStr, mStr] = timeStr.split(":");
+  const h = parseInt(hStr, 10);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const displayH = h % 12 || 12;
+  return displayH + ":" + mStr + " " + ampm;
+}
+
+var badge = document.getElementById("badge");
+var schedEnd = P("sched_end");
+if (reason === "time_limit" && limit > 0) {
+  badge.textContent = "Daily limit · " + Math.round(limit / 60) + " min spent";
+} else if (reason === "schedule" && schedEnd) {
+  badge.textContent = "Blocked until " + formatTime12(schedEnd);
+} else {
+  badge.textContent = RULE_LABELS[reason] || "Blocked by FocusFlow";
+}
+badge.className = "badge " + (RULE_LABELS[reason] ? reason : "");
+
+// ── Rule detail ───────────────────────────────────────────────────────────────
+var ruleDetail = document.getElementById("rule-detail");
+if (ruleDetail) {
+  if (reason === "schedule" && schedEnd) {
+    ruleDetail.textContent = "This site is blocked until " + formatTime12(schedEnd) + " by your schedule.";
+  } else {
+    ruleDetail.textContent = RULE_DETAIL[reason] || "This site has been blocked by one of your rules.";
+  }
+}
+
+// ── Last productive site suggestion ──────────────────────────────────────────
+try {
+  chrome.runtime.sendMessage({ type: "GET_LAST_PRODUCTIVE" }, function (res) {
+    if (chrome.runtime.lastError || !res || !res.domain) return;
+    var el = document.getElementById("productive-suggestion");
+    if (!el) return;
+    el.innerHTML = 'Go do something useful: <a href="https://' + res.domain + '" class="prod-link">' + res.domain + ' →</a>';
+    el.style.display = "block";
+  });
+} catch (_) { }
+
+
+
+
+// ── Back button ───────────────────────────────────────────────────────────────
+document.getElementById("btn-back").addEventListener("click", function () {
+  try {
+    chrome.tabs && chrome.tabs.getCurrent && chrome.tabs.getCurrent(function (tab) {
+      if (tab && tab.id) {
+        chrome.tabs.remove(tab.id, function () {
+          if (chrome.runtime.lastError) location.replace("chrome://newtab/");
+        });
+      } else { location.replace("chrome://newtab/"); }
+    });
+  } catch (e) { location.replace("chrome://newtab/"); }
+});
+
+document.getElementById("btn-set").addEventListener("click", function () {
+  chrome.runtime.openOptionsPage();
+});

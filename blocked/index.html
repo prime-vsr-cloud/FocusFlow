@@ -2,48 +2,57 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>Blocked &mdash; FocusFlow</title>
+<title>Blocked — FocusFlow</title>
+<link rel="stylesheet" href="../global.css">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#0a0a0a;color:#fff;font-family:system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem}
-body::before{content:"";position:fixed;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.04) 1px,transparent 1px);background-size:24px 24px;pointer-events:none}
-.bar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:.65rem 1.4rem;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(10,10,10,.9);backdrop-filter:blur(8px);z-index:10}
-.pulse{width:8px;height:8px;border-radius:50%;background:#ef4444;animation:p 1.5s infinite}
-@keyframes p{0%,100%{opacity:1}50%{opacity:.3}}
-.card{position:relative;z-index:1;width:100%;max-width:420px;background:linear-gradient(135deg,#141414,#0f0f0f);border:1px solid rgba(255,255,255,.06);border-radius:26px;padding:2.25rem;text-align:center;box-shadow:0 32px 64px rgba(0,0,0,.8)}
-.pill{display:inline-block;font-size:.65rem;letter-spacing:.15em;color:#737373;text-transform:uppercase;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:.25rem .9rem;margin-bottom:1.25rem;font-family:monospace}
-.emoji{font-size:3rem;margin-bottom:.75rem}
-h1{font-size:1.3rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.6rem;background:linear-gradient(180deg,#fff,#a3a3a3);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sub{font-size:.85rem;color:#525252;line-height:1.6;margin-bottom:1.25rem}
-.badge{display:inline-block;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;padding:.3rem .8rem;border-radius:7px;margin-bottom:1.25rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#737373}
-.badge.time_limit{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);color:#f87171}
-.badge.schedule{background:rgba(251,146,60,.08);border-color:rgba(251,146,60,.2);color:#fb923c}
-.badge.instant{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);color:#f87171}
-.btn-back{display:block;width:100%;padding:.8rem;border-radius:13px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#000;font-weight:600;font-size:.875rem;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,.25);transition:transform .15s,box-shadow .15s;margin-bottom:.6rem}
-.btn-back:hover{transform:scale(1.02);box-shadow:0 6px 28px rgba(34,197,94,.35)}
-.btn-set{display:block;width:100%;padding:.65rem;background:none;border:none;color:#404040;font-size:.78rem;cursor:pointer;letter-spacing:.04em;transition:color .15s}
-.btn-set:hover{color:#737373}
-.quote{margin-top:1.75rem;z-index:1;position:relative;font-size:.65rem;color:#222;letter-spacing:.04em;text-transform:uppercase;max-width:280px;line-height:1.6;text-align:center}
-.gl{position:fixed;pointer-events:none}
-.gl1{bottom:0;right:0;width:14rem;height:14rem;background:radial-gradient(circle at 100% 100%,rgba(74,222,128,.05),transparent 70%)}
-.gl2{top:0;left:0;width:14rem;height:14rem;background:radial-gradient(circle at 0% 0%,rgba(74,222,128,.03),transparent 70%)}
+body{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;position:relative}
+body::before{content:"";position:fixed;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px;pointer-events:none;mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%)}
+.bar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:.7rem 1.4rem;border-bottom:1px solid var(--bd);background:color-mix(in srgb,var(--bg) 88%, transparent);backdrop-filter:blur(12px);z-index:10}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--red);animation:p 1.5s infinite;box-shadow:0 0 12px var(--red)}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
+.brand{font-size:.62rem;color:var(--tx3);letter-spacing:.22em;font-family:'Manrope',sans-serif;font-weight:700}
+.bar-reason{font-size:.62rem;color:var(--red);letter-spacing:.18em;text-transform:uppercase;font-weight:700}
+.card{position:relative;z-index:1;width:100%;max-width:440px;padding:2.5rem 2.25rem;text-align:center;box-shadow:var(--shadow-lg);background:linear-gradient(180deg, var(--bg2), var(--bg))}
+.pill{display:inline-block;font-size:.62rem;letter-spacing:.18em;color:var(--tx3);text-transform:uppercase;background:var(--bg3);border:1px solid var(--bd);border-radius:999px;padding:.3rem 1rem;margin-bottom:1.5rem;font-family:'Manrope',sans-serif;font-weight:700}
+.emoji{font-size:3.25rem;margin-bottom:.6rem;line-height:1;animation:scale-in .5s cubic-bezier(.16,1,.3,1)}
+h1{font-family:var(--display-font);font-size:2.4rem;font-weight:400;letter-spacing:-.02em;line-height:1.05;margin-bottom:.75rem;color:var(--tx)}
+h1 em{font-style:italic;color:var(--green)}
+.sub{font-size:.92rem;color:var(--tx2);line-height:1.55;margin-bottom:1.5rem;max-width:34ch;margin-left:auto;margin-right:auto}
+.badge{display:inline-block;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;padding:.35rem .9rem;border-radius:8px;margin-bottom:1.5rem;background:var(--bg3);border:1px solid var(--bd);color:var(--tx3);font-weight:700}
+.badge.time_limit{background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+.badge.schedule{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber)}
+.badge.instant{background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+.btn-back{display:block;width:100%;margin-bottom:.5rem}
+.btn-set{display:block;width:100%}
+.quote{margin-top:2rem;z-index:1;position:relative;font-family:var(--display-font);font-style:italic;font-size:.95rem;color:var(--tx4);max-width:340px;line-height:1.55;text-align:center}
+.gl{position:fixed;pointer-events:none;z-index:0}
+.gl1{bottom:-4rem;right:-4rem;width:22rem;height:22rem;background:radial-gradient(circle,rgba(5,213,129,.06),transparent 70%)}
+.gl2{top:-4rem;left:-4rem;width:22rem;height:22rem;background:radial-gradient(circle,rgba(92,156,252,.05),transparent 70%)}
+  .rule-detail{font-size:.8rem;color:var(--tx3);margin-bottom:1rem;padding:.5rem .9rem;background:var(--bg3);border-radius:8px;border:1px solid var(--bd)}
+  .prod-suggestion{font-size:.82rem;color:var(--tx2);margin-bottom:1rem;display:none}
+  .prod-link{color:var(--green);font-weight:700;text-decoration:none}
+  .prod-link:hover{text-decoration:underline}
+
 </style>
 </head>
 <body>
 <div class="bar">
-  <div style="display:flex;align-items:center;gap:8px"><div class="pulse"></div><span style="font-size:.6rem;color:#404040;letter-spacing:.2em;font-family:monospace">FOCUSFLOW</span></div>
-  <span id="bar-reason" style="font-size:.6rem;color:#991b1b;letter-spacing:.15em;text-transform:uppercase"></span>
+  <div style="display:flex;align-items:center;gap:10px"><div class="pulse"></div><span class="brand">FOCUSFLOW</span></div>
+  <span id="bar-reason" class="bar-reason"></span>
 </div>
-<div class="card">
+<div class="card scale-in">
   <div class="pill" id="domain-pill">this site</div>
-  <div class="emoji" id="emoji">&#x26D4;</div>
-  <h1 id="headline">Not today.</h1>
+  <div class="emoji" id="emoji">⛔</div>
+  <h1 id="headline">Not <em>today.</em></h1>
   <p class="sub" id="sub">You blocked this. Past-you was smarter than you right now.</p>
   <div class="badge" id="badge">Blocked by FocusFlow</div>
-  <button class="btn-back" id="btn-back">&#x2190; Take me back</button>
-  <button class="btn-set" id="btn-set">Manage block rules &#x2192;</button>
+  <div class="rule-detail" id="rule-detail"></div>
+    <div class="prod-suggestion" id="productive-suggestion"></div>
+    <button class="bp btn-back" id="btn-back">← Take me back</button>
+
+  <button class="bs btn-set" id="btn-set">Manage block rules →</button>
 </div>
-<p class="quote">&ldquo;Discipline is choosing between what you want now and what you want most.&rdquo;</p>
+<p class="quote">"Discipline is choosing between what you want now and what you want most."</p>
 <div class="gl gl1"></div>
 <div class="gl gl2"></div>
 <script src="blocked.js"></script>

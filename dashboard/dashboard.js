@@ -1,1 +1,3660 @@
-var $=function(e){return document.getElementById(e)},rules=[],allowList=[],siteCategories={},customCategories=[],visitedSites=[],AUTO_CATEGORIES={},FCIRC=2*Math.PI*106,selectedCat="all",currentView="today",analyticsRange=7,siteRange=7,trendRange=7,currentATab="overview",isBulkMode=!1,bulkSelected=new Set,DEFAULT_CATS=["productivity","learning","distraction","communication","uncategorized"],CAT_META={productivity:{label:"Productivity",color:"#05D581",emoji:"💻"},learning:{label:"Learning",color:"#a855f7",emoji:"📚"},distraction:{label:"Distraction",color:"#F46B7A",emoji:"⚡"},communication:{label:"Communication",color:"#5C9CFC",emoji:"💬"},uncategorized:{label:"Unorganized",color:"#555555",emoji:"❓"}};const GRANULAR_SITES_DASHBOARD={"youtube.com":[{id:"yt-shorts",label:"Hide Shorts"},{id:"yt-recom",label:"Hide Recommended Feed"},{id:"yt-comments",label:"Hide Comments"}],"reddit.com":[{id:"rd-feed",label:"Hide Home Feed"}],"instagram.com":[{id:"ig-reels",label:"Hide Reels"}],"twitter.com":[{id:"tw-trends",label:"Hide Trending"}],"x.com":[{id:"tw-trends",label:"Hide Trending"}]};var PRESETS={"Distraction Pack":[{d:"tiktok.com",c:"distraction"},{d:"pinterest.com",c:"distraction"},{d:"twitch.tv",c:"distraction"},{d:"theuselessweb.com",c:"distraction"},{d:"netflix.com",c:"distraction"},{d:"reddit.com",c:"distraction"},{d:"instagram.com",c:"distraction"},{d:"facebook.com",c:"distraction"},{d:"youtube.com",c:"distraction"}],"Communication Pack":[{d:"zoom.us",c:"communication"},{d:"threads.net",c:"communication"},{d:"messenger.com",c:"communication"},{d:"chat.google.com",c:"communication"},{d:"teams.microsoft.com",c:"communication"},{d:"linkedin.com",c:"communication"},{d:"slack.com",c:"communication"},{d:"discord.com",c:"communication"},{d:"web.telegram.org",c:"communication"},{d:"web.whatsapp.com",c:"communication"}],"Productivity Pack":[{d:"chatgpt.com",c:"productivity"},{d:"gemini.google.com",c:"productivity"},{d:"claude.ai",c:"productivity"},{d:"notion.so",c:"productivity"},{d:"github.com",c:"productivity"},{d:"perplexity.ai",c:"productivity"},{d:"canva.com",c:"productivity"},{d:"todoist.com",c:"productivity"},{d:"trello.com",c:"productivity"},{d:"forestapp.cc",c:"productivity"}],"Study Pack":[{d:"pw.live",c:"learning"},{d:"khanacademy.org",c:"learning"},{d:"unacademy.com",c:"learning"},{d:"byjus.com",c:"learning"},{d:"wolframalpha.com",c:"learning"},{d:"quizlet.com",c:"learning"},{d:"vedantu.com",c:"learning"},{d:"coursera.org",c:"learning"},{d:"testbook.com",c:"learning"}]};function msg(e, t, retries = 3) { return new Promise(a => { try { chrome.runtime.sendMessage(Object.assign({ type: e }, t || {}), res => { if (chrome.runtime.lastError) { chrome.runtime.lastError.message; if (retries > 0) setTimeout(() => msg(e, t, retries - 1).then(a), 100); else a(null); } else { a(res); } }); } catch (err) { if (retries > 0) setTimeout(() => msg(e, t, retries - 1).then(a), 100); else a(null); } }); }function easeOutQuart(e){return 1-Math.pow(1-e,4)}function hideAnalyticsHeader(){document.querySelectorAll("*").forEach(e=>{"Your complete productivity picture."===e.textContent.trim()&&(e.style.display="none",e.parentElement&&Array.from(e.parentElement.children).forEach(e=>{"Analytics"===e.textContent.trim()&&(e.style.display="none")}))}),document.querySelectorAll('[data-atab="trend"]').forEach(e=>e.textContent="Comparison")}async function applyTheme(){const e=await gLocal(["theme"]),t=("light"!==e.theme&&e.theme,"light"===e.theme),a="cinematic"===e.theme;document.documentElement.classList.toggle("light",t),document.documentElement.classList.toggle("cinematic",a),document.documentElement.setAttribute("data-os-theme","nothing")}function getEffectiveCat(e){if(siteCategories[e])return{cat:siteCategories[e],auto:!1};for(var t=e.split("."),a=1;a<t.length-1;a++){var n=t.slice(a).join(".");if(siteCategories[n])return{cat:siteCategories[n],auto:!1}}if(AUTO_CATEGORIES[e])return{cat:AUTO_CATEGORIES[e],auto:!0};var i=t.length>2?t.slice(1).join("."):e;return AUTO_CATEGORIES[i]?{cat:AUTO_CATEGORIES[i],auto:!0}:{cat:"uncategorized",auto:!1}}function catColor(e){return(CAT_META[e]||{color:"#555555"}).color}function catEmoji(e){return(CAT_META[e]||{emoji:"🏷️"}).emoji}function catLabel(e,t){var a=(CAT_META[e]||{label:e}).label;return t?a+" ✨":a}function allCats(){return DEFAULT_CATS.concat(customCategories.filter(e=>!DEFAULT_CATS.includes(e)))}function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}applyTheme(),chrome.storage.onChanged.addListener((e,t)=>{"local"===t&&e.theme&&(applyTheme(),loadAnalytics()),"sync"===t&&e.settings&&applyTheme()}),$("btn-dark-mode")&&$("btn-dark-mode").addEventListener("click",()=>sLocal({theme:"dark"})),$("btn-light-mode")&&$("btn-light-mode").addEventListener("click",()=>sLocal({theme:"light"})),$("btn-cinematic-mode")&&$("btn-cinematic-mode").addEventListener("click",()=>sLocal({theme:"cinematic"}));var fmtT=fmtTimer;function toast(e,t){var a=$("toast");a.textContent=("ok"===t?"✓ ":"")+e,a.className="toast "+(t||""),clearTimeout(a._tid),a._tid=setTimeout(()=>a.className="toast hide",2400)}var pcRes=null,pcBuf="";function showPass(e=!1,t="Settings Locked",a="Enter your 4-digit PIN to continue"){return new Promise(n=>{pcRes=n,pcBuf="",updDots(),$("pc-title")&&($("pc-title").textContent=t),$("pc-desc")&&($("pc-desc").textContent=a),$("pcerr").classList.add("hide"),$("pccancel").style.display=e?"block":"none",$("pcOverlay").classList.remove("hide")})}function updDots(){$("pdots").querySelectorAll("span").forEach((e,t)=>e.classList.toggle("on",t<pcBuf.length))}async function checkGate(){var e=(await gSync(["settings"])).settings||{};return!e.passcodeHash||!0!==e.lockDash||showPass()}async function promptPinIfEnabled(e){var t=(await gSync(["settings"])).settings||{};return!t.passcodeHash||!1===t[e]||await showPass(!0,"Verification Required","Enter your PIN to perform this action.")}document.addEventListener("keydown",e=>{const t=$("pcOverlay");t&&!t.classList.contains("hide")&&(e.key>="0"&&e.key<="9"?(e.preventDefault(),e.stopPropagation(),pcBuf.length<4&&(pcBuf+=e.key,updDots())):"Backspace"===e.key?(e.preventDefault(),e.stopPropagation(),pcBuf=pcBuf.slice(0,-1),updDots()):"Enter"===e.key?(e.preventDefault(),e.stopPropagation(),4===pcBuf.length&&$("pcok").click()):"Escape"===e.key&&$("pccancel")&&"none"!==$("pccancel").style.display&&(e.preventDefault(),e.stopPropagation(),$("pccancel").click()))},!0),$("pccancel").addEventListener("click",()=>{$("pcOverlay").classList.add("hide"),pcRes&&pcRes(!1)}),document.querySelectorAll(".pk[data-n]").forEach(e=>e.addEventListener("click",()=>{pcBuf.length>=4||(pcBuf+=e.getAttribute("data-n"),updDots())})),$("pclr").addEventListener("click",()=>{pcBuf=pcBuf.slice(0,-1),updDots()}),$("pcok").addEventListener("click",async()=>{if(!(pcBuf.length<4)){var e=await gSync(["settings"]);await hashPin(pcBuf)===(e.settings||{}).passcodeHash?($("pcOverlay").classList.add("hide"),pcRes&&pcRes(!0)):($("pcerr").classList.remove("hide"),pcBuf="",updDots())}});let activeScrubDay=null,activeScrubDom=null,activeScrubSecs=0;function injectScrubModal(){if(!$("scrubModal")){var e=document.createElement("div");e.id="scrubModal",e.className="overlay hide",e.innerHTML='\n        <div class="card" style="width:100%;max-width:360px;padding:32px;text-align:center">\n           <div style="font-size:28px;margin-bottom:12px">⏱️</div>\n           <div style="font-size:18px;font-weight:800;margin-bottom:8px">Reduce Time</div>\n           <div style="font-size:13px;color:var(--tx2);margin-bottom:24px">How many minutes do you want to remove for <span id="scrub-dom" style="color:var(--tx);font-weight:700"></span>?</div>\n           <input type="number" id="scrub-mins" class="inp" style="width:100%;font-size:24px;text-align:center;font-weight:800;margin-bottom:24px" placeholder="Minutes">\n           <div style="display:flex;gap:12px;">\n               <button class="bs" id="scrub-cancel" style="flex:1">Cancel</button>\n               <button class="bp" id="scrub-save" style="flex:1;background:var(--red);color:#fff;border-color:var(--red)">Remove</button>\n           </div>\n        </div>\n    ',document.body.appendChild(e),$("scrub-cancel").onclick=()=>$("scrubModal").classList.add("hide"),$("scrub-save").onclick=async()=>{let e=parseInt($("scrub-mins").value)||0;if(e<=0)return;let t=60*e;t>activeScrubSecs&&(t=activeScrubSecs);let a=(await gLocal(["daily"])).daily||{};if(a[activeScrubDay]&&a[activeScrubDay].sites&&a[activeScrubDay].sites[activeScrubDom]){let e=getEffectiveCat(activeScrubDom).cat;a[activeScrubDay][e]=Math.max(0,(a[activeScrubDay][e]||0)-t),a[activeScrubDay].sites[activeScrubDom]=Math.max(0,a[activeScrubDay].sites[activeScrubDom]-t),0===a[activeScrubDay].sites[activeScrubDom]&&delete a[activeScrubDay].sites[activeScrubDom],await sLocal({daily:a}),toast("Time adjusted","ok"),loadAnalytics()}$("scrubModal").classList.add("hide")}}}function openScrubModal(e,t,a){$("scrubModal")||injectScrubModal(),activeScrubDay=e,activeScrubDom=t,activeScrubSecs=a,$("scrub-dom").textContent=t,$("scrub-mins").value="",$("scrub-mins").max=Math.ceil(a/60),$("scrubModal").classList.remove("hide"),setTimeout(()=>$("scrub-mins").focus(),50)}async function renderGranularBlocksUI(){let e=document.getElementById("tab-sitemanager");if(!e)return;let t=document.getElementById("granular-ui-wrapper");t||(t=document.createElement("div"),t.id="granular-ui-wrapper",t.innerHTML='\n           <div style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin:24px 0 12px;display:flex;align-items:center;gap:8px">\n               <span style="width:8px;height:8px;border-radius:50%;background:var(--blue)"></span>Advanced Site Tweaks\n           </div>\n           <div id="granular-blocks-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:32px;align-items:start;"></div>\n        ',e.insertBefore(t,e.firstChild));let a=document.getElementById("granular-blocks-grid");a.innerHTML="";var n=(await gLocal(["granularRules"])).granularRules||{};Object.keys(GRANULAR_SITES_DASHBOARD).forEach(e=>{var t=document.createElement("div");t.className="card",t.style.alignSelf="start";var i=`<div style="padding:16px; border-bottom:1px solid var(--bd); font-weight:800; display:flex; align-items:center; gap:8px;">${getFav(e)} ${e}</div>`,s='<div style="padding:16px; display:flex; flex-direction:column; gap:12px;">';GRANULAR_SITES_DASHBOARD[e].forEach(t=>{var a=n[e]&&n[e][t.id]?"checked":"";s+=`\n              <div style="display:flex; justify-content:space-between; align-items:center;">\n                 <span style="font-size:13px; font-weight:600; color:var(--tx2)">${t.label}</span>\n                 <label class="tog"><input type="checkbox" class="g-db-cb" data-d="${e}" data-r="${t.id}" ${a}><span class="ttrack"></span></label>\n              </div>`}),s+="</div>",t.innerHTML=i+s,a.appendChild(t)}),document.querySelectorAll(".g-db-cb").forEach(e=>{e.addEventListener("change",async e=>{if(await promptPinIfEnabled("lockTweaks")){var t=e.target.getAttribute("data-d"),a=e.target.getAttribute("data-r"),n=e.target.checked,i=(await gLocal(["granularRules"])).granularRules||{};i[t]||(i[t]={}),i[t][a]=n,await sLocal({granularRules:i})}else e.target.checked=!e.target.checked})})}async function loadRules(){var e=await gLocal(["blockRules","allowList"]);rules=(e.blockRules||[]).map(e=>(void 0!==e.mode&&(e.focusOnly="focus_only"===e.mode,e.timeLimitEnabled="time_limit"===e.mode,e.scheduleEnabled="schedule"===e.mode||Array.isArray(e.schedules)&&e.schedules.length>0,delete e.mode),e)),allowList=e.allowList||[],renderCombined()}function ruleMode(e){var t=[];return e.instantBlock?"Always":(e.focusOnly&&t.push("Focus"),e.timeLimitEnabled&&t.push("Limit"),e.scheduleEnabled&&t.push("Schedule"),t.length?t.join(", "):"Always")}function ruleSchedLabel(e){return e.scheduleEnabled&&Array.isArray(e.schedules)&&e.schedules.length?e.schedules.map(e=>e.start+"–"+e.end).join(", "):"—"}function renderCombined(){var e=$("combined-list");e.className=isBulkMode?"bulk-mode":"",e.querySelectorAll(".brow").forEach(e=>e.remove()),$("combined-empty")&&(rules.length||allowList.length?$("combined-empty").style.display="none":($("combined-empty").style.display="flex",$("combined-empty").innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg><p>No blocking rules yet.</p>')),rules.forEach(function(t){var a=document.createElement("div");a.className="brow brow-rules",a.innerHTML=`\n      <input type="checkbox" class="bulk-cb" data-id="${t.id}">\n      <span class="dom" style="display:flex;align-items:center;gap:8px;">${getFav(t.domain)} ${t.domain}</span>\n      <span><span class="cbadge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)">Blocked</span></span>\n      <span class="mtxt">${ruleMode(t)}</span>\n      <span class="ltxt">${t.timeLimitEnabled&&t.dailyLimitSecs?Math.round(t.dailyLimitSecs/60)+" min/day":"—"}</span>\n      <span class="stxt">${ruleSchedLabel(t)}</span>\n      <span class="ract"><button class="bic edit-r" data-id="${t.id}">✎</button><button class="bic del del-r" data-id="${t.id}">✕</button></span>`,e.appendChild(a)}),allowList.forEach(function(t){var a=document.createElement("div");a.className="brow brow-rules allow-row",a.innerHTML=`\n      <input type="checkbox" class="bulk-cb" data-d="${t}">\n      <span class="dom" style="display:flex;align-items:center;gap:8px;">${getFav(t)} ${t}</span>\n      <span><span class="cbadge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">Allowed</span></span>\n      <span class="mtxt" style="color:var(--tx3)">Always accessible</span><span class="ltxt">—</span><span class="stxt">—</span>\n      <span class="ract"><button class="bic del del-a" data-d="${t}">✕</button></span>`,e.appendChild(a)}),e.querySelectorAll(".edit-r").forEach(e=>e.addEventListener("click",async()=>{await promptPinIfEnabled("lockRules")&&openModal(e.getAttribute("data-id"))})),e.querySelectorAll(".del-r").forEach(e=>e.addEventListener("click",()=>delRule(e.getAttribute("data-id")))),e.querySelectorAll(".del-a").forEach(e=>e.addEventListener("click",()=>delAllow(e.getAttribute("data-d")))),e.querySelectorAll(".bulk-cb").forEach(e=>{e.addEventListener("change",()=>{let t=e.getAttribute("data-id")||e.getAttribute("data-d");e.checked?bulkSelected.add(t):bulkSelected.delete(t)})})}function addBlockedSite(e,t,a){if(rules.find(t=>t.domain===e))return toast(e+" already blocked","er"),null;var n={id:uid(),domain:e,category:t,redirectUrl:a||null,instantBlock:!0,focusOnly:!1,timeLimitEnabled:!1,dailyLimitSecs:0,scheduleEnabled:!1,schedules:[]};return rules.push(n),n}async function delRule(e){if(!await promptPinIfEnabled("lockRules"))return;let t=await gLocal(["blockRules"]);rules=(rules=t.blockRules||[]).filter(t=>t.id!==e),await sLocal({blockRules:rules}),await msg("TRIGGER_DNR_UPDATE"),renderCombined(),toast("Rule removed","ok")}async function delAllow(e){if(!await promptPinIfEnabled("lockRules"))return;let t=await gLocal(["allowList"]);allowList=(allowList=t.allowList||[]).filter(t=>t!==e),await sLocal({allowList:allowList}),await msg("TRIGGER_DNR_UPDATE"),renderCombined(),toast("Removed","ok")}function renderScheduleSlots(e){var t=$("schedule-slots");t.innerHTML="",(e||[]).forEach((e,a)=>{var n=document.createElement("div");n.className="sched-slot",n.style.cssText="display:flex;align-items:center;gap:12px;margin-bottom:12px;background:var(--bg3);padding:12px 16px;border-radius:12px;border:1px solid var(--bd)",n.innerHTML=`<span style="font-size:13px;color:var(--tx2);font-weight:700">From</span><input type="time" class="inp sched-start" value="${e.start||"09:00"}" style="flex:1"/>\n      <span style="font-size:13px;color:var(--tx2);font-weight:700">to</span><input type="time" class="inp sched-end" value="${e.end||"21:00"}" style="flex:1"/>\n      <button class="bic del rm-slot" data-idx="${a}">✕</button>`,t.appendChild(n)}),t.querySelectorAll(".rm-slot").forEach(e=>e.addEventListener("click",()=>{var t=getSlots();t.splice(parseInt(e.getAttribute("data-idx"),10),1),renderScheduleSlots(t)}))}function getSlots(){var e=[];return $("schedule-slots").querySelectorAll(".sched-slot").forEach(t=>{var a=t.querySelector(".sched-start").value,n=t.querySelector(".sched-end").value;a&&n&&e.push({start:a,end:n})}),e}function openModal(e){var t=rules.find(t=>t.id===e);t&&($("m-id").value=e,$("m-dom").value=t.domain,$("m-lim").value=t.dailyLimitSecs?Math.round(t.dailyLimitSecs/60):30,$("m-redir").value=t.redirectUrl||"",$("m-mode-always").checked=!!t.instantBlock,$("m-mode-focus").checked=!!t.focusOnly,$("m-mode-limit").checked=!!t.timeLimitEnabled,$("m-mode-schedule").checked=!!t.scheduleEnabled,$("mf-tl").style.display=t.timeLimitEnabled?"block":"none",$("mf-sc").style.display=t.scheduleEnabled?"block":"none",renderScheduleSlots(Array.isArray(t.schedules)&&t.schedules.length?t.schedules:t.scheduleEnabled&&t.scheduleStart?[{start:t.scheduleStart,end:t.scheduleEnd||"21:00"}]:[{start:"09:00",end:"21:00"}]),$("ruleModal").classList.remove("hide"))}async function applyPreset(e){var t=PRESETS[e];if(t){var a=siteCategories;for(var n of(t.forEach(e=>a[e.d]=e.c),await sLocal({siteCategories:a}),siteCategories=a,t))await msg("CATEGORIZE_SITE",{domain:n.d,category:n.c});renderCategories(),toast("Applied "+e,"ok")}}function renderPresetButtons(){var e=$("preset-btn-group");e&&(e.innerHTML="",Object.keys(PRESETS).forEach(t=>{var a=document.createElement("button");a.className="bs",a.style.cssText="font-size:12px;padding:6px 12px;border-radius:8px",a.textContent="+ "+t,a.addEventListener("click",async()=>{confirm("Apply "+t+"?")&&await applyPreset(t)}),e.appendChild(a)}))}async function loadCategories(){var e=await gLocal(["siteCategories"]);siteCategories=e.siteCategories||{}}async function loadVisitedSites(){var e=await msg("GET_VISITED_SITES");visitedSites=e?.visitedSites||[]}function renderCatSquares(){var e=$("cat-squares");if(!e)return;e.innerHTML="";const t=Array.from(new Set([...visitedSites,...Object.keys(siteCategories)]));["all"].concat(allCats().filter(e=>"uncategorized"!==e)).forEach(a=>{var n="all"===a,i=n?{label:"All Sites",emoji:"🌍",color:"var(--tx)"}:CAT_META[a]||{label:a,emoji:"🏷️",color:"#555"},s=0;n?s=t.length:t.forEach(e=>{getEffectiveCat(e).cat===a&&s++});var o=document.createElement("div");o.className="cat-sq"+(selectedCat===a?" selected":""),o.style.borderColor=selectedCat===a?i.color:void 0,o.innerHTML=`<div class="cat-sq-icon">${i.emoji}</div><div class="cat-sq-name" style="color:${selectedCat===a?i.color:"var(--tx)"}">${i.label}</div><div class="cat-sq-count">${s} sites</div>`,o.addEventListener("click",()=>{selectedCat=a,renderCategories()}),e.appendChild(o)})}async function tagSite(e,t){siteCategories[e]=t,await msg("CATEGORIZE_SITE",{domain:e,category:t}),renderCategories()}function renderCategories(){renderCatSquares();var e=$("cat-groups");if(!e)return;e.innerHTML="";var t={};Array.from(new Set([...visitedSites,...Object.keys(siteCategories)])).forEach(e=>{var a=getEffectiveCat(e);t[a.cat]||(t[a.cat]=[]),t[a.cat].push({domain:e,auto:a.auto})}),Object.keys(t).length?allCats().forEach(a=>{if(t[a]&&t[a].length&&("all"===selectedCat||selectedCat===a)){var n=document.createElement("div");n.className="card",n.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px 16px;background:var(--bg3);border-radius:12px;border:1px solid var(--bd2)"><span style="width:12px;height:12px;border-radius:50%;background:${catColor(a)}"></span><span style="font-size:16px;font-weight:800;flex:1;color:var(--tx)">${catEmoji(a)} ${catLabel(a,!1)}</span><span style="font-size:12px;color:var(--tx3);background:var(--bg4);padding:6px 12px;border-radius:999px;font-weight:700">${t[a].length} sites</span></div>`;var i=document.createElement("div");t[a].forEach(e=>{var t=document.createElement("div");t.style.cssText="display:flex;align-items:center;gap:16px;padding:12px 16px;background:var(--bg2);border:1px solid var(--bd);border-radius:12px;margin-bottom:8px";var n=`<select class="sel" data-domain="${e.domain}" style="padding:8px 12px;font-size:13px;width:auto">`;allCats().forEach(e=>n+=`<option value="${e}"${e===a?" selected":""}>${catEmoji(e)} ${catLabel(e,!1)}</option>`),n+="</select>",t.innerHTML=`<span style="font-family:monospace;font-size:15px;font-weight:700;flex:1;word-break:break-all;display:flex;align-items:center;gap:8px;">${getFav(e.domain)} ${e.domain} ${e.auto?'<span style="font-size:11px;color:var(--tx3);" title="Auto-categorized">✨</span>':""}</span>${n}<button class="bic del rm-cat" data-domain="${e.domain}" ${e.auto?'disabled style="opacity:0.2"':""}>✕</button>`,i.appendChild(t)}),i.querySelectorAll(".sel").forEach(e=>e.addEventListener("change",async t=>{await promptPinIfEnabled("lockTags")?await tagSite(e.getAttribute("data-domain"),e.value):t.target.value=a})),i.querySelectorAll(".rm-cat").forEach(e=>e.addEventListener("click",async()=>{await promptPinIfEnabled("lockTags")&&(delete siteCategories[e.getAttribute("data-domain")],await sLocal({siteCategories:siteCategories}),renderCategories())})),n.appendChild(i),e.appendChild(n)}}):e.innerHTML='<div class="card"><div class="empty">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>\n      <p>No sites visited yet.</p>\n    </div></div>'}function renderFocus(e,t=25){if(!e||!e.active){$("frf")&&$("frf").setAttribute("stroke-dashoffset",FCIRC),$("ftb")&&($("ftb").textContent=t+":00"),$("fcyc")&&($("fcyc").textContent="0 cycles"),$("fpb")&&($("fpb").textContent="Work",$("fpb").style.color="var(--green)"),$("frf")&&($("frf").style.stroke="var(--green)"),$("sfd")&&($("sfd").className="bdot"),$("btn-fs")&&($("btn-fs").style.display=""),$("btn-fst")&&($("btn-fst").style.display="none"),$("btn-fp")&&($("btn-fp").style.display="none"),$("btn-skip")&&($("btn-skip").style.display="none"),$("frf")&&($("frf").style.opacity="1");let e=document.getElementById("dynamic-favicon");return void(e&&(e.href="../icons/icon128.png"))}$("sfd")&&($("sfd").className="bdot on");var a="work"===e.phase,n=e.fullDuration||(a?1500:"long_break"===e.phase?900:300),i=Math.max(0,1-Math.min(1,(e.remaining||0)/n));$("frf")&&($("frf").style.stroke=a?"var(--green)":"var(--amber)",$("frf").setAttribute("stroke-dashoffset",(FCIRC*i).toFixed(1))),$("fpb")&&($("fpb").style.color=a?"var(--green)":"var(--amber)",$("fpb").textContent=a?"Work":"long_break"===e.phase?"Long Break":"Short Break"),$("ftb")&&($("ftb").textContent=fmtT(e.remaining||0)),$("fcyc")&&($("fcyc").textContent=(e.cyclesCompleted||0)+" cycles"),$("btn-fs")&&($("btn-fs").style.display="none"),$("btn-fst")&&($("btn-fst").style.display=""),$("btn-fp")&&($("btn-fp").style.display="",e.paused?(e.remaining===n?$("btn-fp").textContent="work"===e.phase?"▶ Start Work":"▶ Start Break":$("btn-fp").textContent="▶ Resume",$("frf")&&($("frf").style.opacity="0.5")):($("btn-fp").textContent="⏸ Pause",$("frf")&&($("frf").style.opacity="1"))),$("btn-skip")&&($("btn-skip").style.display=a?"none":"");const s=document.createElement("canvas");s.width=32,s.height=32;const o=s.getContext("2d"),r=document.documentElement.classList.contains("light");o.fillStyle=r?"#f1f5f9":"#121212",o.beginPath(),o.arc(16,16,16,0,2*Math.PI),o.fill(),o.strokeStyle="#2E2E2E",o.lineWidth=4,o.beginPath(),o.arc(16,16,12,0,2*Math.PI),o.stroke(),o.strokeStyle=a?"#05D581":"#F6B846",o.lineCap="round",o.beginPath(),o.arc(16,16,12,-Math.PI/2,-Math.PI/2+2*Math.PI*(1-i)),o.stroke();let l=document.getElementById("dynamic-favicon");l&&(l.href=s.toDataURL())}async function loadFocusUI(){var e=await msg("FOCUS_GET_STATE"),t=(await gSync(["settings"])).settings||{},a=void 0!==t.focusWork?t.focusWork:25;renderFocus(e?.focusState,a)}async function loadSettings(){var e=(await gSync(["settings"])).settings||{};if($("sw")&&($("sw").value=void 0!==e.focusWork?e.focusWork:25),$("sb")&&($("sb").value=void 0!==e.focusBreak?e.focusBreak:5),$("sl")&&($("sl").value=void 0!==e.focusLongBreak?e.focusLongBreak:15),$("sc")&&($("sc").value=void 0!==e.focusCycles?e.focusCycles:4),$("thresh-focus")&&($("thresh-focus").value=e.threshFocus||75),$("thresh-balanced")&&($("thresh-balanced").value=e.threshBalanced||40),$("thresh-distract")&&($("thresh-distract").value=e.threshDistract||60),$("tog-badge")&&($("tog-badge").checked=!1!==e.showBadge),$("idle-timeout-sel")&&($("idle-timeout-sel").value=e.idleTimeout||60),$("welcome-back-thresh-sel")&&($("welcome-back-thresh-sel").value=e.welcomeBackThresh||10),$("focus-block-cats")){$("focus-block-cats").style.display=!1!==e.blockDuringFocus?"flex":"none";let t=e.focusBlockCats||["distraction"];document.querySelectorAll(".focus-cb-cat").forEach(e=>{e.checked=t.includes(e.value)})}}async function loadAnalytics(){"overview"===currentATab&&await renderOverview(),"daily"===currentATab&&await renderDailyBreakdown(),"topsites"===currentATab&&await renderTopSites(),"trend"===currentATab&&await renderTrend()}function getDays(e){for(var t=[],a=[],n=e-1;n>=0;n--){var i=new Date;i.setDate(i.getDate()-n);var s=i.getFullYear(),o=String(i.getMonth()+1).padStart(2,"0"),r=String(i.getDate()).padStart(2,"0");t.push(`${s}-${o}-${r}`),a.push(i.toLocaleDateString("en-US",{month:"short",day:"numeric"}))}return{days:t,labels:a}}document.querySelectorAll(".ni").forEach(e=>{e.addEventListener("click",async()=>{var t=e.getAttribute("data-tab");if("settings"===t){var a=(await gSync(["settings"])).settings||{};if(a.passcodeHash&&!1!==a.lockSettings&&!await showPass(!0,"Settings Locked","Enter your PIN to access Settings."))return}document.querySelectorAll(".ni").forEach(e=>e.classList.remove("act")),document.querySelectorAll(".tab").forEach(e=>e.classList.remove("act")),e.classList.add("act"),$("tab-"+t).classList.add("act"),"analytics"===t&&loadAnalytics(),"settings"===t&&loadExtendedSettings(),"focus"===t&&(loadFocusUI(),loadWeeklyGoalSettings(),loadFocusHistory()),"sitemanager"===t&&(loadVisitedSites(),renderCategories(),renderGranularBlocksUI())})}),$("btn-bulk-edit")&&$("btn-bulk-edit").addEventListener("click",async()=>{await promptPinIfEnabled("lockRules")&&(isBulkMode=!0,bulkSelected.clear(),$("btn-bulk-edit").style.display="none",$("bulk-actions").style.display="flex",renderCombined())}),$("btn-bulk-cancel")&&$("btn-bulk-cancel").addEventListener("click",()=>{isBulkMode=!1,bulkSelected.clear(),$("btn-bulk-edit").style.display="",$("bulk-actions").style.display="none",renderCombined()}),$("btn-bulk-delete")&&$("btn-bulk-delete").addEventListener("click",async()=>{if(0===bulkSelected.size)return void toast("No items selected","er");if(!confirm(`Delete ${bulkSelected.size} rules?`))return;let e=await gLocal(["blockRules","allowList"]);rules=e.blockRules||[],allowList=e.allowList||[],rules=rules.filter(e=>!bulkSelected.has(e.id)),allowList=allowList.filter(e=>!bulkSelected.has(e)),await sLocal({blockRules:rules,allowList:allowList}),await msg("TRIGGER_DNR_UPDATE"),isBulkMode=!1,bulkSelected.clear(),$("btn-bulk-edit").style.display="",$("bulk-actions").style.display="none",renderCombined(),toast("Rules deleted","ok")}),$("btn-add-block")&&$("btn-add-block").addEventListener("click",async function(){var e=$("cat-inp").value.trim().toLowerCase().replace(/^https?:\/\//,"").replace(/^www\./,"").split("/")[0];if(e){var t=$("block-cat").value,a=$("cat-redir").value.trim();await tagSite(e,t);var n=await gLocal(["blockRules"]);rules=n.blockRules||[];var i=addBlockedSite(e,t,a);i&&(await sLocal({blockRules:rules}),await msg("TRIGGER_DNR_UPDATE"),$("cat-inp").value="",$("cat-redir").value="",$("cat-inp").blur(),renderCombined(),openModal(i.id))}else toast("Enter a domain","er")}),$("btn-add-allow-inline")&&$("btn-add-allow-inline").addEventListener("click",async function(){var e=$("cat-inp").value.trim().toLowerCase().replace(/^https?:\/\//,"").replace(/^www\./,"").split("/")[0];if(e){var t=await gLocal(["allowList"]);(allowList=t.allowList||[]).includes(e)?toast(e+" already in allowlist","er"):(allowList.push(e),await sLocal({allowList:allowList}),await msg("TRIGGER_DNR_UPDATE"),$("cat-inp").value="",$("cat-inp").blur(),renderCombined(),toast(e+" allowed","ok"))}else toast("Enter a domain","er")}),$("cat-inp")&&$("cat-inp").addEventListener("keydown",e=>{"Enter"===e.key&&$("btn-add-cat").click()}),$("add-sched-slot")&&$("add-sched-slot").addEventListener("click",()=>{var e=getSlots();e.push({start:"09:00",end:"17:00"}),renderScheduleSlots(e)}),$("m-mode-always")?.addEventListener("change",e=>{e.target.checked&&($("m-mode-focus").checked=!1,$("m-mode-limit").checked=!1,$("m-mode-schedule").checked=!1,$("mf-tl").style.display="none",$("mf-sc").style.display="none")}),["m-mode-focus","m-mode-limit","m-mode-schedule"].forEach(e=>{$(e)?.addEventListener("change",()=>{$("m-mode-always").checked=!1,$("mf-tl").style.display=$("m-mode-limit").checked?"block":"none",$("mf-sc").style.display=$("m-mode-schedule").checked?"block":"none"})}),$("m-cancel")&&$("m-cancel").addEventListener("click",()=>$("ruleModal").classList.add("hide")),$("ruleModal")&&$("ruleModal").addEventListener("click",function(e){e.target===this&&$("ruleModal").classList.add("hide")}),$("m-save")&&$("m-save").addEventListener("click",async()=>{var e=$("m-id").value,t=await gLocal(["blockRules"]),a=(rules=t.blockRules||[]).findIndex(t=>t.id===e);if(-1!==a){var n=rules[a];n.instantBlock=$("m-mode-always").checked,n.focusOnly=$("m-mode-focus").checked,n.timeLimitEnabled=$("m-mode-limit").checked,n.scheduleEnabled=$("m-mode-schedule").checked,n.dailyLimitSecs=n.timeLimitEnabled?60*parseInt($("m-lim").value,10):0;var i=$("m-redir").value.trim();n.redirectUrl=i||null,n.scheduleEnabled?n.schedules=getSlots():n.schedules=[],rules[a]=n,await sLocal({blockRules:rules}),await msg("TRIGGER_DNR_UPDATE"),$("ruleModal").classList.add("hide"),renderCombined(),toast("Rule saved","ok")}}),$("btn-add-cat")&&$("btn-add-cat").addEventListener("click",async()=>{var e=$("cat-inp").value.trim().toLowerCase().split("/")[0];if(e){var t=$("block-cat").value;await tagSite(e,t),$("cat-inp").value="",$("cat-inp").blur(),toast(e+" tagged as "+CAT_META[t].label,"ok")}}),$("btn-fs")&&$("btn-fs").addEventListener("click",async()=>{var e=(await gSync(["settings"])).settings||{};renderFocus((await msg("FOCUS_START"))?.focusState,e.focusWork||25)}),$("btn-fst")&&$("btn-fst").addEventListener("click",async()=>{if(await promptPinIfEnabled("lockStop")){var e=(await gSync(["settings"])).settings||{};renderFocus((await msg("FOCUS_STOP"))?.focusState,e.focusWork||25),loadFocusHistory()}}),$("btn-fp")&&$("btn-fp").addEventListener("click",async()=>{var e=$("btn-fp").textContent.includes("Resume")||$("btn-fp").textContent.includes("Start"),t=(await gSync(["settings"])).settings||{};renderFocus((await msg(e?"FOCUS_RESUME":"FOCUS_PAUSE"))?.focusState,t.focusWork||25)}),$("btn-skip")&&$("btn-skip").addEventListener("click",async()=>{var e=(await gSync(["settings"])).settings||{};renderFocus((await msg("FOCUS_SKIP"))?.focusState,e.focusWork||25)}),$("btn-save-focus")&&$("btn-save-focus").addEventListener("click",async()=>{var e=(await gSync(["settings"])).settings||{};e.focusWork=parseInt($("sw").value,10),isNaN(e.focusWork)&&(e.focusWork=25),e.focusBreak=parseInt($("sb").value,10),isNaN(e.focusBreak)&&(e.focusBreak=5),e.focusLongBreak=parseInt($("sl").value,10),isNaN(e.focusLongBreak)&&(e.focusLongBreak=15),e.focusCycles=parseInt($("sc").value,10),isNaN(e.focusCycles)&&(e.focusCycles=4);let t=[];document.querySelectorAll(".focus-cb-cat:checked").forEach(e=>t.push(e.value)),e.focusBlockCats=t.length?t:["distraction"],await sSync({settings:e}),toast("Timer settings saved","ok"),loadFocusUI(),msg("TRIGGER_DNR_UPDATE")}),$("btn-save-goals")&&$("btn-save-goals").addEventListener("click",async()=>{var e=(await gSync(["settings"])).settings||{};e.weeklyGoalHours=parseInt($("weekly-goal-input").value)||0,e.streakMinMinutes=parseInt($("streak-min-input").value)||30;let t=[];document.querySelectorAll(".goal-cb-cat:checked").forEach(e=>t.push(e.value)),e.goalCats=t.length?t:["productivity","learning"],await sSync({settings:e}),toast("Study goals saved","ok"),loadWeeklyGoalSettings(),loadAnalytics()}),document.querySelectorAll("[data-atab]").forEach(e=>{e.addEventListener("click",()=>{document.querySelectorAll("[data-atab]").forEach(e=>e.classList.remove("act")),e.classList.add("act"),currentATab=e.getAttribute("data-atab"),["overview","daily","topsites","trend"].forEach(e=>{$("atab-"+e)&&($("atab-"+e).style.display=e===currentATab?"":"none")}),setTimeout(()=>loadAnalytics(),100)})}),document.querySelectorAll("[data-range]").forEach(e=>{e.addEventListener("click",()=>{document.querySelectorAll("[data-range]").forEach(e=>e.classList.remove("act")),e.classList.add("act"),analyticsRange=parseInt(e.getAttribute("data-range")),$("ov-range-lbl")&&($("ov-range-lbl").textContent="Last "+analyticsRange+" days"),renderOverview()})}),document.querySelectorAll("[data-siterange]").forEach(e=>{e.addEventListener("click",()=>{document.querySelectorAll("[data-siterange]").forEach(e=>e.classList.remove("act")),e.classList.add("act"),siteRange=e.getAttribute("data-siterange"),renderTopSites()})}),document.querySelectorAll("[data-trendrange]").forEach(e=>{e.addEventListener("click",()=>{document.querySelectorAll("[data-trendrange]").forEach(e=>e.classList.remove("act")),e.classList.add("act"),trendRange=parseInt(e.getAttribute("data-trendrange")),renderTrend()})});let tooltipHitboxes=[],tooltipEl=null;function hideTooltip(){tooltipEl&&(tooltipEl.style.opacity="0")}function showTooltip(e,t,a){tooltipEl||(tooltipEl=document.createElement("div"),tooltipEl.className="chart-tooltip",document.body.appendChild(tooltipEl)),tooltipEl.innerHTML=a,tooltipEl.style.left=e+15+"px",tooltipEl.style.top=t-15+"px",tooltipEl.style.opacity="1"}function initCanvasHover(e){const t=$(e);t&&!t._hoverBound&&(t._hoverBound=!0,t.addEventListener("mousemove",e=>{const a=t.getBoundingClientRect(),n=e.clientX-a.left,i=e.clientY-a.top;let s=null;for(let e=0;e<tooltipHitboxes.length;e++){let t=tooltipHitboxes[e];if(n>=t.x&&n<=t.x+t.w&&i>=t.y&&i<=t.y+t.h){s=t;break}}s?(t.style.cursor="crosshair",showTooltip(e.clientX,e.clientY,s.text)):(t.style.cursor="default",hideTooltip())}),t.addEventListener("mouseleave",()=>{hideTooltip(),t.style.cursor="default"}))}function drawBarChart(e,t,a,n,i,s,o,r){var l=document.getElementById(a),c=document.getElementById(e),d=document.getElementById(t);if(!c||!l||!d)return;d.parentElement&&(d.parentElement.style.display="flex",d.parentElement.style.flexDirection="row-reverse"),tooltipHitboxes=[],initCanvasHover(e);var u=l.parentElement.clientWidth||800;u-=50;var p=Math.max(u,80*n.length),g=340,m=window.devicePixelRatio||1;c.width=p*m,c.height=g*m,c.style.width=p+"px",c.style.height=g+"px";var v=c.getContext("2d");v.scale(m,m);const h=document.documentElement.classList.contains("light"),f=h?"#e2e8f0":"rgba(255,255,255,.08)";for(var y=p,b=n.length,$=1,k=0;k<b;k++){var x=allCats().reduce((e,t)=>e+Math.max(0,Math.round((s[i[k]]&&s[i[k]][t]||0)/60)),0);x>$&&!isNaN(x)&&($=x)}d.innerHTML="",d.style.position="relative",d.style.minWidth="45px",d.style.height=g+"px";for(var w=4;w>=0;w--){var E=$*w/4,S=$>90?Math.round(E/6)/10+"h":Math.round(E)+"m",L=document.createElement("div");L.textContent=S,L.style.cssText="position:absolute; right:8px; top:"+(20+280*(1-w/4)-7)+"px; color:var(--tx); font-weight:800; font-size:12px; background:transparent; padding:0; border:none; box-shadow:none; line-height:1; font-family:monospace;",d.appendChild(L)}var T=o.length?o:["uncategorized"],C=y/b,A=Math.max(6,Math.min(24,Math.floor(.8*C/Math.max(1,T.length)))),M=A*T.length;let R=null;requestAnimationFrame(function e(t){R||(R=t);const a=Math.min(1,(t-R)/500),o=easeOutQuart(a);v.clearRect(0,0,p,g);for(var l=0;l<=4;l++){var c=20+280*(1-l/4);v.strokeStyle=f,v.beginPath(),v.moveTo(0,c),v.lineTo(p,c),v.stroke()}for(var d=0;d<b;d++){const e=i[d];T.forEach((t,n)=>{var i=Math.round((s[e]&&s[e][t]||0)/60);if(!(i<=0||isNaN(i))){var l=d*C+C/2-M/2+n*A,c=catColor(t),u=i/$*280,p=Math.max(3,u)*o;if(v.fillStyle=c,v.beginPath(),v.roundRect?v.roundRect(l,300-p,A-1,p,[4,4,0,0]):v.rect(l,300-p,A-1,p),v.fill(),1===a){let a=r[e]||{},n=[];Object.entries(a).forEach(([e,a])=>{getEffectiveCat(e).cat===t&&a>0&&n.push({domain:e,mins:Math.round(a/60)})}),n.sort((e,t)=>t.mins-e.mins);let s=n.slice(0,5),o=`<div style="font-weight:800;margin-bottom:6px;border-bottom:1px solid var(--bd2);padding-bottom:6px;color:${c}">${CAT_META[t].label} · ${fmt(60*i)}</div>`;0===s.length&&(o+='<div style="font-size:12px;color:var(--tx2)">No specific sites tracked.</div>'),s.forEach(e=>{o+=`<div style="display:flex;justify-content:space-between;gap:16px;font-size:12px;margin-bottom:4px"><span>${e.domain}</span><span class="num" style="color:var(--tx2);font-weight:700">${fmt(60*e.mins)}</span></div>`}),tooltipHitboxes.push({x:l,y:300-p,w:A-1,h:p,text:o})}}}),v.save(),v.translate(d*C+C/2,312),v.fillStyle=h?"#0f172a":"#ffffff",v.font="800 12px system-ui",v.textAlign="center",v.textBaseline="top",v.fillText(n[d],0,0),v.restore()}a<1&&requestAnimationFrame(e)}),setTimeout(()=>l.scrollLeft=l.scrollWidth,10)}function drawTrendChart(e,t,a,n,i,s,o,r,l){var c=document.getElementById(a),d=document.getElementById(e),u=document.getElementById(t);if(!d||!c||!u)return;u.parentElement&&(u.parentElement.style.display="flex",u.parentElement.style.flexDirection="row-reverse"),tooltipHitboxes=[],initCanvasHover(e);var p=c.parentElement.clientWidth||800;p-=50;var g=Math.max(p,80*n.length),m=340,v=window.devicePixelRatio||1;d.width=g*v,d.height=m*v,d.style.width=g+"px",d.style.height=m+"px";var h=d.getContext("2d");h.scale(v,v);const f=document.documentElement.classList.contains("light"),y=f?"#e2e8f0":"rgba(255,255,255,.08)";var b=20,$=280,k=g,x=n.length,w=[];i&&w.push(...i),s&&w.push(...s),o&&w.push(...o),r&&w.push(...r),l&&w.push(...l);var E=Math.max(1,...w.map(e=>isNaN(e)?0:e));u.innerHTML="",u.style.position="relative",u.style.minWidth="45px",u.style.height=m+"px";for(var S=4;S>=0;S--){var L=E*S/4,T=E>90?Math.round(L/6)/10+"h":Math.round(L)+"m",C=document.createElement("div");C.textContent=T,C.style.cssText="position:absolute; right:8px; top:"+(b+$*(1-S/4)-7)+"px; color:var(--tx); font-weight:800; font-size:12px; background:transparent; padding:0; border:none; box-shadow:none; line-height:1; font-family:monospace;",u.appendChild(C)}var A=k/Math.max(1,x),M=A/2;let R=null;requestAnimationFrame(function e(t){R||(R=t);const a=Math.min(1,(t-R)/500),c=easeOutQuart(a);h.clearRect(0,0,g,m);for(var d=0;d<=4;d++){var u=b+$*(1-d/4);h.strokeStyle=y,h.beginPath(),h.moveTo(0,u),h.lineTo(g,u),h.stroke()}function p(e,t,a){if(e&&e.length){h.beginPath(),h.moveTo(M,300-(e[0]||0)/E*$*c);for(var n=0;n<x-1;n++){var i=M+n*A,s=300-(e[n]||0)/E*$*c,o=M+(n+1)*A,r=300-(e[n+1]||0)/E*$*c,l=(i+o)/2;h.quadraticCurveTo(i+(l-i)/2,s,l,(s+r)/2),h.quadraticCurveTo(o-(o-l)/2,r,o,r)}h.strokeStyle=t,h.lineWidth=3,h.stroke(),h.lineTo(M+(x-1)*A,300),h.lineTo(M,300),h.closePath();var d=h.createLinearGradient(0,b,0,300);d.addColorStop(0,a),d.addColorStop(1,"rgba(0,0,0,0)"),h.fillStyle=d,h.fill()}}r&&p(r,"#F46B7A","rgba(244,107,122,0.15)"),o&&p(o,"#5C9CFC","rgba(92,156,252,0.15)"),s&&p(s,"#a855f7","rgba(168,85,247,0.15)"),i&&p(i,"#05D581","rgba(5,213,129,0.15)"),l&&p(l,"#94a3b8","rgba(148,163,184,0.15)");for(var v=0;v<x;v++){var k=M+v*A,w=`<div style="font-weight:800;margin-bottom:6px;border-bottom:1px solid var(--bd2);padding-bottom:6px">${n[v]}</div>`,S=!1;i&&i[v]>0&&(w+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="color:var(--green)">●</span> Productivity: <span class="num">${fmt(60*i[v])}</span></div>`,S=!0),s&&s[v]>0&&(w+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="color:var(--purple)">●</span> Learning: <span class="num">${fmt(60*s[v])}</span></div>`,S=!0),r&&r[v]>0&&(w+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="color:var(--red)">●</span> Distraction: <span class="num">${fmt(60*r[v])}</span></div>`,S=!0),o&&o[v]>0&&(w+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="color:var(--blue)">●</span> Communication: <span class="num">${fmt(60*o[v])}</span></div>`,S=!0),l&&l[v]>0&&(w+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="color:var(--tx4)">●</span> Unorganized: <span class="num">${fmt(60*l[v])}</span></div>`,S=!0),1===a&&S&&tooltipHitboxes.push({x:k-A/2,y:0,w:A,h:m,text:w}),h.save(),h.translate(M+v*A,312),h.fillStyle=f?"#0f172a":"#ffffff",h.font="800 12px system-ui",h.textAlign="center",h.textBaseline="top",h.fillText(n[v],0,0),h.restore()}a<1&&requestAnimationFrame(e)}),setTimeout(()=>c.scrollLeft=c.scrollWidth,10)}async function renderOverview(){var{days:e,labels:t}=getDays(analyticsRange),a=await msg("STATS_GET_RANGE",{days:e}),n=a?.data||{},i={sites:{}},s={};e.forEach(e=>{var t=n[e]||{};s[e]=t.sites||{},Object.keys(t).forEach(e=>{"sites"===e?Object.entries(t.sites||{}).forEach(([e,t])=>i.sites[e]=(i.sites[e]||0)+t):"number"==typeof t[e]&&(i[e]=(i[e]||0)+t[e])})}),$("an-total")&&($("an-total").textContent=fmt(allCats().reduce((e,t)=>e+(i[t]||0),0))),$("an-st")&&($("an-st").textContent=fmt(i.productivity||0)),$("an-lrn")&&($("an-lrn").textContent=fmt(i.learning||0)),$("an-prod")&&($("an-prod").textContent=fmt(i.communication||0)),$("an-dt")&&($("an-dt").textContent=fmt(i.distraction||0));var o=(await msg("STATS_GET_ALL"))?.daily||{},r=0,l=0;Object.keys(o).forEach(e=>{var t=Object.keys(o[e]).filter(t=>"sites"!==t&&"number"==typeof o[e][t]).reduce((t,a)=>t+(o[e][a]||0),0);t>0&&(r+=t,l++)}),$("at-total")&&($("at-total").textContent=fmtBig(r)),$("at-daily-avg")&&($("at-daily-avg").textContent=fmt(l>0?Math.round(r/l):0)),$("at-days")&&($("at-days").textContent=l);var c=await msg("STATS_GET_STREAK"),d=c&&c.streak||{};$("an-bs")&&($("an-bs").textContent=(d.bestStreak||0)+"d"),$("an-bd")&&($("an-bd").textContent=d.bestDay?new Date(d.bestDay+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}):"—");let u=[];$("tog-ov-prod")?.checked&&u.push("productivity"),$("tog-ov-lrn")?.checked&&u.push("learning"),$("tog-ov-dist")?.checked&&u.push("distraction"),$("tog-ov-comm")?.checked&&u.push("communication"),$("tog-ov-unc")?.checked&&u.push("uncategorized"),$("ov-chart")&&drawBarChart("ov-chart","ov-y-axis","ov-scroll",t,e,n,u,s)}async function renderDailyBreakdown(){var e=(await msg("STATS_GET_ALL"))?.daily||{},t=$("daily-breakdown-list");if(t){t.innerHTML="";var a=(await gSync(["settings"])).settings||{},n=Object.keys(e).sort().reverse().slice(0,45);n.length?(n.forEach(n=>{var i=e[n]||{},s=i.productivity||0,o=i.learning||0,r=i.communication||0,l=i.distraction||0,c=(i.uncategorized||0)+customCategories.reduce((e,t)=>e+(i[t]||0),0),d=s+o+r+l+c;if(d<60)return;let u=d>0?l/d:0,p="⚖️ Balanced",g="var(--amber)",m="var(--amber-bg)";(d>0?(s+o)/d:0)>=(a.threshFocus||75)/100?(p="🔥 Laser Focused",g="var(--green)",m="var(--green-bg)"):u>=(a.threshDistract||60)/100&&(p="⚠️ Highly Distracted",g="var(--red)",m="var(--red-bg)");var v=document.createElement("div");v.className="db-card";var h="";[{c:"productivity",l:"Productivity",col:"var(--green)",v:s},{c:"learning",l:"Learning",col:"var(--purple)",v:o},{c:"communication",l:"Communication",col:"var(--blue)",v:r},{c:"distraction",l:"Distraction",col:"var(--red)",v:l},{c:"uncategorized",l:"Unorganized",col:"var(--tx4)",v:c}].forEach(e=>{e.v>0&&d&&(h+=`<div style="width:${e.v/d*100}%;background:${e.col};height:100%;"></div>`)});var f="";if(i.timeline&&i.timeline.length>0){f='<div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--bd);">\n            <div style="font-size:12px;font-weight:800;color:var(--tx3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">24-Hour Timeline</div>\n            <div style="position:relative;height:24px;background:var(--bg3);border-radius:6px;overflow:hidden;border:1px solid var(--bd);">';for(let e=1;e<4;e++)f+=`<div style="position:absolute;left:${25*e}%;top:0;bottom:0;width:1px;background:var(--bd);z-index:1;"></div>`;let e=new Date(n+"T00:00:00").getTime(),t=e+864e5;i.timeline.forEach(a=>{let n=Math.max(e,a.start),i=Math.min(t,a.end);i<=n||(f+=`<div style="position:absolute;left:${(n-e)/864e5*100}%;width:${(i-n)/864e5*100}%;height:100%;background:${catColor(a.cat)};opacity:0.85;z-index:2;border-radius:2px;" title="${new Date(n).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} - ${new Date(i).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}"></div>`)}),f+='</div>\n            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--tx3);font-weight:700;margin-top:6px;text-transform:uppercase;">\n               <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11:59 PM</span>\n            </div>\n        </div>'}var y='<div class="db-sites-grid">',b=0;Object.entries(i.sites||{}).sort((e,t)=>t[1]-e[1]).forEach(([e,t])=>{if(!(t<120)){b++;var a=catColor(getEffectiveCat(e).cat);y+=`<div class="db-site-pill" style="border-left-color:${a}; align-items:center;">\n        <div class="db-site-left" style="color:var(--tx); font-size:15px; font-weight:800;">${getFav(e)}<span class="db-site-dom">${e}</span></div>\n        <span class="db-site-time num" style="color:var(--tx); font-size:15px; font-weight:800;">${fmt(t)} <button class="scrub-btn" data-day="${n}" data-dom="${e}" data-secs="${t}" title="Adjust time" style="background:none;border:none;cursor:pointer;opacity:0.6;transition:all 0.2s;margin-left:6px;">⚙️</button></span>\n      </div>`}}),0===b&&(y+='<span style="font-size:13px;color:var(--tx3);font-weight:600;grid-column:1/-1;">No major site activity tracked.</span>'),y+="</div>";var $=`\n      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:16px;">\n        <div style="background:var(--bg3); border:1px solid var(--bd); border-radius:12px; padding:16px 12px; display:flex; flex-direction:column; align-items:center;">\n          <span class="num" style="font-size:22px; font-weight:800; color:var(--tx); line-height:1;">${fmtBig(d)}</span>\n          <span style="font-size:10px; font-weight:800; color:var(--tx2); text-transform:uppercase; letter-spacing:1px; margin-top:6px; text-align:center;">Total Tracked</span>\n        </div>\n        <div style="background:var(--green-bg); border:1px solid var(--green-bd); border-radius:12px; padding:16px 12px; display:flex; flex-direction:column; align-items:center; opacity:${s>0?"1":"0.3"};">\n          <span class="num" style="font-size:22px; font-weight:800; color:var(--green); line-height:1;">${fmt(s)}</span>\n          <span style="font-size:10px; font-weight:800; color:var(--green); text-transform:uppercase; letter-spacing:1px; margin-top:6px; text-align:center;">Productivity</span>\n        </div>\n        <div style="background:var(--red-bg); border:1px solid var(--red-bd); border-radius:12px; padding:16px 12px; display:flex; flex-direction:column; align-items:center; opacity:${l>0?"1":"0.3"};">\n          <span class="num" style="font-size:22px; font-weight:800; color:var(--red); line-height:1;">${fmt(l)}</span>\n          <span style="font-size:10px; font-weight:800; color:var(--red); text-transform:uppercase; letter-spacing:1px; margin-top:6px; text-align:center;">Distraction</span>\n        </div>\n      </div>\n    `;v.innerHTML=`\n      <div class="db-hero" style="margin-bottom:20px;">\n        <div style="display:flex; align-items:center; gap:12px;">\n          <div class="db-date" style="font-size:18px; font-weight:800;">${new Date(n+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>\n          <div class="db-badge" style="color:${g};background:${m};font-weight:800;">${p}</div>\n        </div>\n        ${$}\n      </div>\n      <div class="db-bar-wrap">${h}</div>\n      ${f}\n      ${y}\n    `,t.appendChild(v)}),t.querySelectorAll(".scrub-btn").forEach(e=>{e.addEventListener("click",async()=>{await promptPinIfEnabled("lockDanger")&&openScrubModal(e.getAttribute("data-day"),e.getAttribute("data-dom"),parseInt(e.getAttribute("data-secs")))})})):t.innerHTML='<div class="empty">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3; margin-bottom:16px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>\n      <p>No activity data available yet.</p>\n    </div>'}}async function renderTopSites(){var e=(await msg("STATS_GET_ALL"))?.daily||{},t=Object.keys(e).sort(),a="all"===siteRange?t:[];if("all"!==siteRange)for(var n=parseInt(siteRange)-1;n>=0;n--){var i=new Date;i.setDate(i.getDate()-n),a.push(i.toISOString().split("T")[0])}var s={};a.forEach(t=>Object.entries(e[t]?.sites||{}).forEach(([e,t])=>s[e]=(s[e]||0)+t));var o=Object.entries(s).sort((e,t)=>t[1]-e[1]).slice(0,50),r=$("top-sites");if(r)if(r.innerHTML="",o.length){var l=t.filter(t=>Object.values(e[t]?.sites||{}).reduce((e,t)=>e+t,0)>0).length||1;o.forEach(e=>{var t=getEffectiveCat(e[0]),a=document.createElement("div");a.className="siterow";var n=`<select class="sel" data-domain="${e[0]}" style="padding:4px 8px;font-size:12px;width:auto;">`;allCats().forEach(e=>n+=`<option value="${e}"${e===t.cat?" selected":""}>${catEmoji(e)} ${catLabel(e,!1)}</option>`),n+="</select>",a.innerHTML=`\n      <span class="dom" style="display:flex; align-items:center; gap:8px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${getFav(e[0])}${e[0]} ${t.auto?'<span style="font-size:11px;color:var(--tx3);" title="Auto-categorized">✨</span>':""}</span>\n      ${n}\n      <span class="stat-pill">${fmt(e[1])}</span>\n      <span class="stat-pill">~${fmt(Math.round(e[1]/l))}</span>\n      <button class="bic note-btn" data-d="${e[0]}" title="Notes" style="justify-self:end;">📝</button>\n    `,a.querySelector(".note-btn").addEventListener("click",function(){openNoteModal(this.getAttribute("data-d"))}),a.querySelector(".sel")?.addEventListener("change",async function(){await tagSite(this.getAttribute("data-domain"),this.value),loadAnalytics()}),r.appendChild(a)})}else r.innerHTML='<div class="empty">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3; margin-bottom:16px;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1 4-10z"></path></svg>\n      <p>No sites tracked for this period.</p>\n    </div>'}async function renderTrend(){for(var{days:e,labels:t}=getDays(trendRange),a=await msg("STATS_GET_RANGE",{days:e}),n=a?.data||{},i=0,s=0,o=e.map(e=>{var t=(n[e]||{}).productivity||0;return i+=t,Math.round(t/60)}),r=e.map(e=>{var t=(n[e]||{}).learning||0;return i+=t,Math.round(t/60)}),l=e.map(e=>{var t=(n[e]||{}).communication||0;return Math.round(t/60)}),c=e.map(e=>{var t=(n[e]||{}).distraction||0;return s+=t,Math.round(t/60)}),d=e.map(e=>{var t=(n[e]||{}).uncategorized||0;return Math.round(t/60)}),u=[],p=2*trendRange-1;p>=trendRange;p--){var g=new Date;g.setDate(g.getDate()-p),u.push(`${g.getFullYear()}-${String(g.getMonth()+1).padStart(2,"0")}-${String(g.getDate()).padStart(2,"0")}`)}var m=await msg("STATS_GET_RANGE",{days:u}),v=m?.data||{},h=0,f=0;u.forEach(e=>{h+=(v[e]?.productivity||0)+(v[e]?.learning||0),f+=v[e]?.distraction||0});var y=h>0?Math.round((i-h)/h*100):i>0?100:0,b=f>0?Math.round((s-f)/f*100):s>0?100:0;function k(e,t){return 0===e?'<span style="color:var(--tx3)">No change</span>':`<span style="color:${(t?e>0:e<0)?"var(--green)":"var(--red)"};font-weight:800">${e>0?"↗":"↘"} ${Math.abs(e)}%</span> <span style="font-size:12px;color:var(--tx2);font-weight:600">vs prev ${trendRange}d</span>`}let x=$("trend-study-total")?.parentElement?.parentElement;x&&!x.dataset.modified&&(x.dataset.modified="true",x.innerHTML='\n          <div style="flex:1;background:var(--bg3);padding:20px;border-radius:16px;border:1px solid var(--bd);">\n              <div style="font-size:12px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Productivity Focus</div>\n              <div id="pop-prod" style="font-size:24px;font-family:monospace;font-weight:800;line-height:1.2;">—</div>\n          </div>\n          <div style="flex:1;background:var(--bg3);padding:20px;border-radius:16px;border:1px solid var(--bd);">\n              <div style="font-size:12px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Distraction Tracking</div>\n              <div id="pop-dist" style="font-size:24px;font-family:monospace;font-weight:800;line-height:1.2;">—</div>\n          </div>\n      '),$("pop-prod")&&($("pop-prod").innerHTML=k(y,!0)+`<br><span style="font-size:13px;color:var(--tx);font-family:'Inter',sans-serif;font-weight:700">Current: ${fmtBig(i)}</span>`),$("pop-dist")&&($("pop-dist").innerHTML=k(b,!1)+`<br><span style="font-size:13px;color:var(--tx);font-family:'Inter',sans-serif;font-weight:700">Current: ${fmtBig(s)}</span>`);var w=!$("tog-trend-prod")||$("tog-trend-prod").checked,E=!$("tog-trend-lrn")||$("tog-trend-lrn").checked,S=!$("tog-trend-comm")||$("tog-trend-comm").checked,L=!$("tog-trend-dist")||$("tog-trend-dist").checked,T=!$("tog-trend-unc")||$("tog-trend-unc").checked;"function"==typeof drawTrendChart&&$("trend-chart")&&drawTrendChart("trend-chart","trend-y-axis","trend-scroll",t,w?o:null,E?r:null,S?l:null,L?c:null,T?d:null)}async function loadWeeklyGoalSettings(){var e=(await gSync(["settings"])).settings||{};$("weekly-goal-input")&&($("weekly-goal-input").value=e.weeklyGoalHours||0),$("streak-min-input")&&($("streak-min-input").value=e.streakMinMinutes||30);let t=e.goalCats||["productivity","learning"];document.querySelectorAll(".goal-cb-cat").forEach(e=>{e.checked=t.includes(e.value)}),await renderGoalPreview(e.weeklyGoalHours||0)}async function renderGoalPreview(e){var t=await msg("STATS_GET_WEEK"),a=t?.studySecs||0,n=3600*e,i=Math.min(1,n>0?a/n:0);$("goal-preview-bar")&&($("goal-preview-bar").style.width=Math.round(100*i)+"%",$("goal-preview-bar").style.background=i>=1?"var(--amber)":"var(--green)"),$("goal-preview-pct")&&($("goal-preview-pct").textContent=n>0?i>=1?"🏆":Math.round(100*i)+"%":"—",$("goal-preview-pct").style.color=i>=1?"var(--amber)":"var(--green)"),$("goal-preview-done")&&($("goal-preview-done").textContent=Math.floor(a/3600)+"h "+Math.floor(a%3600/60)+"m done"),$("goal-preview-left")&&($("goal-preview-left").textContent=n>0?i>=1?"Goal hit! ✓":fmtBig(Math.max(0,n-a))+" remaining":"No goal")}function renderWhitelist(e){var t=$("whitelist-container");t&&(t.innerHTML="",e.length?(e.forEach((e,a)=>{var n=document.createElement("div");n.style.cssText="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);padding:10px 16px;border-radius:10px;border:1px solid var(--bd2);",n.innerHTML=`<span style="font-family:monospace;font-size:14px;color:var(--tx);font-weight:700">${e}</span><button class="bic del rm-wl" data-idx="${a}" style="width:28px;height:28px;font-size:12px">✕</button>`,t.appendChild(n)}),t.querySelectorAll(".rm-wl").forEach(t=>t.addEventListener("click",async()=>{e.splice(parseInt(t.getAttribute("data-idx")),1),await sLocal({idleWhitelist:e}),renderWhitelist(e),toast("Removed exception","ok")}))):t.innerHTML='<span style="font-size:13px;color:var(--tx3)">No exceptions added.</span>')}async function loadExtendedSettings(){var e=(await gSync(["settings"])).settings||{};if($("tog-bd")){let t=$("tog-bd").cloneNode(!0);$("tog-bd").parentNode.replaceChild(t,$("tog-bd")),t.checked=!1!==e.blockDuringFocus,t.addEventListener("change",async e=>{var a=(await gSync(["settings"])).settings||{};t.checked||!1===a.lockBDF||!a.passcodeHash||await promptPinIfEnabled("lockBDF")?(a.blockDuringFocus=t.checked,await sSync({settings:a})):t.checked=!0})}if($("tog-pc")&&($("tog-pc").checked=!!e.passcodeEnabled),$("tog-fun")&&($("tog-fun").checked=!1!==e.funnyBlocked),$("block-msg")&&($("block-msg").value=e.customBlockMsg||""),$("tab-limit-input")&&($("tab-limit-input").value=e.tabLimit||0),$("tog-time-warn")&&($("tog-time-warn").checked=!1!==e.timeWarningEnabled),$("thresh-focus")&&($("thresh-focus").value=e.threshFocus||75),$("thresh-balanced")&&($("thresh-balanced").value=e.threshBalanced||40),$("thresh-distract")&&($("thresh-distract").value=e.threshDistract||60),$("tog-badge")&&($("tog-badge").checked=!1!==e.showBadge),$("idle-timeout-sel")&&($("idle-timeout-sel").value=e.idleTimeout||60),$("welcome-back-thresh-sel")&&($("welcome-back-thresh-sel").value=e.welcomeBackThresh||10),renderWhitelist((await gLocal(["idleWhitelist"])).idleWhitelist||[]),$("pin-status-badge"))if(e.passcodeHash){$("pin-status-badge").textContent="🔒 PIN Active",$("pin-status-badge").style.color="var(--green)";var t=$("pin-status-badge").parentElement;if(t.style.display="flex",t.style.justifyContent="space-between",t.style.alignItems="center",(a=document.getElementById("pin-actions-div"))||((a=document.createElement("div")).id="pin-actions-div",a.style.display="flex",a.style.gap="12px",$("btn-change-pin")&&a.appendChild($("btn-change-pin")),$("btn-remove-pin")&&a.appendChild($("btn-remove-pin")),t.appendChild(a)),$("granular-locks").style.display="block",$("pin-setup-box").style.display="none",$("pin-manage-box").style.display="flex",!$("lock-bdf-container")&&$("granular-locks")){let e=document.createElement("div");e.id="lock-bdf-container",e.style.cssText="display:flex; justify-content:space-between; align-items:center; padding:16px 0; border-top:1px solid var(--bd); margin-top:8px;",e.innerHTML='\n               <div>\n                   <div style="font-weight:700; color:var(--tx);">Lock "Block During Focus"</div>\n                   <div style="font-size:13px; color:var(--tx2); margin-top:4px;">Require PIN to turn off distraction blocking</div>\n               </div>\n               <label class="tog"><input type="checkbox" id="lock-bdf" class="inp"><span class="ttrack"></span></label>\n            ',$("granular-locks").appendChild(e)}if(!$("lock-tweaks-container")&&$("granular-locks")){let e=document.createElement("div");e.id="lock-tweaks-container",e.style.cssText="display:flex; justify-content:space-between; align-items:center; padding:16px 0; border-top:1px solid var(--bd); margin-top:8px;",e.innerHTML='<div><div style="font-weight:700; color:var(--tx);">Lock Advanced Site Tweaks</div><div style="font-size:13px; color:var(--tx2); margin-top:4px;">Require PIN to toggle granular site controls (Hide Shorts, etc.)</div></div><label class="tog"><input type="checkbox" id="lock-tweaks" class="inp"><span class="ttrack"></span></label>',$("granular-locks").appendChild(e)}$("lock-dash").checked=!!e.lockDash,$("lock-settings").checked=!1!==e.lockSettings,$("lock-stop").checked=!1!==e.lockStop,$("lock-rules").checked=!1!==e.lockRules,$("lock-tags").checked=!1!==e.lockTags,$("lock-danger").checked=!1!==e.lockDanger,$("lock-tweaks")&&($("lock-tweaks").checked=!1!==e.lockTweaks),$("lock-bdf")&&($("lock-bdf").checked=!1!==e.lockBDF)}else{var a;$("pin-status-badge").textContent="🔓 Not Set",$("pin-status-badge").style.color="var(--tx2)",$("granular-locks").style.display="none",(a=document.getElementById("pin-actions-div"))&&($("btn-change-pin")&&$("pin-manage-box").insertBefore($("btn-change-pin"),$("pin-manage-box").firstChild),$("btn-remove-pin")&&$("pin-manage-box").insertBefore($("btn-remove-pin"),$("pin-manage-box").firstChild),a.remove()),$("pin-setup-box").style.display="flex",$("pin-manage-box").style.display="none"}var n=$("free-hours-list");n&&(n.innerHTML="",(e.freeTimeHours||[]).forEach((e,t)=>{var a=document.createElement("div");a.style.cssText="display:flex;align-items:center;gap:16px;background:var(--bg3);padding:12px 16px;border-radius:12px;border:1px solid var(--bd)",a.innerHTML=`<span style="font-size:14px;color:var(--tx2);font-weight:700">From</span><input type="time" class="inp fh-start" value="${e.start||"18:00"}" style="flex:1"/><span style="font-size:14px;color:var(--tx2);font-weight:700">to</span><input type="time" class="inp fh-end" value="${e.end||"22:00"}" style="flex:1"/><button class="bic del rm-fh" data-idx="${t}">✕</button>`,n.appendChild(a)}),n.querySelectorAll(".rm-fh").forEach(t=>t.addEventListener("click",async()=>{var a=e.freeTimeHours||[];a.splice(parseInt(t.getAttribute("data-idx"),10),1),await sSync({settings:{...e,freeTimeHours:a}}),loadExtendedSettings()})))}async function loadFocusHistory(){var e=await msg("GET_FOCUS_HISTORY"),t=e?.focusHistory||[],a=$("history-list");if(a){if(!t.length)return a.innerHTML='<div class="empty" style="padding:40px 10px">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3; margin-bottom:16px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>\n      <p>No focus sessions yet.</p>\n      <button class="bp" id="btn-empty-start-focus" style="margin-top:16px;padding:10px 24px;">▶ Start First Session</button>\n    </div>',void($("btn-empty-start-focus")&&$("btn-empty-start-focus").addEventListener("click",()=>{$("btn-fs").click()}));var n={};t.forEach(e=>{n[e.date]||(n[e.date]=[]),n[e.date].push(e)}),a.innerHTML="",Object.keys(n).sort().reverse().forEach(e=>{var t=document.createElement("div");t.style.cssText="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin:16px 0 8px;padding:0 4px",t.textContent=new Date(e+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}),a.appendChild(t),n[e].forEach(e=>{var t=document.createElement("div");t.style.cssText="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg3);border:1px solid var(--bd);border-radius:12px;margin-bottom:8px;transition:var(--trans)",t.onmouseover=()=>t.style.borderColor="var(--bd2)",t.onmouseout=()=>t.style.borderColor="var(--bd)",t.innerHTML=`<div style="font-size:20px">⏱</div><div style="flex:1"><div class="num" style="font-size:14px;font-weight:800;color:var(--tx)">${e.startedAt?new Date(e.startedAt).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}):"—"}</div><div class="num" style="font-size:12px;color:var(--tx2);margin-top:2px;font-weight:600">${e.cyclesCompleted||0} cycles</div></div><div class="num" style="font-family:monospace;font-size:16px;font-weight:800;color:var(--green)">${Math.round(e.durationMins||0)}m</div>`,a.appendChild(t)})})}}["tog-ov-prod","tog-ov-lrn","tog-ov-dist","tog-ov-comm","tog-ov-unc"].forEach(e=>{$(e)&&$(e).addEventListener("change",renderOverview)}),["tog-trend-prod","tog-trend-lrn","tog-trend-comm","tog-trend-dist","tog-trend-unc"].forEach(e=>{$(e)&&$(e).addEventListener("change",renderTrend)}),$("weekly-goal-input")&&$("weekly-goal-input").addEventListener("input",()=>{renderGoalPreview(parseInt($("weekly-goal-input").value)||0)}),$("btn-add-whitelist")&&$("btn-add-whitelist").addEventListener("click",async()=>{var e=$("whitelist-inp").value.trim().toLowerCase().replace(/^https?:\/\//,"").replace(/^www\./,"").split("/")[0];if(e){var t=(await gLocal(["idleWhitelist"])).idleWhitelist||[];t.includes(e)?toast("Already added","er"):(t.push(e),await sLocal({idleWhitelist:t}),$("whitelist-inp").value="",renderWhitelist(t),toast("Exception added","ok"))}}),$("btn-add-free-hour")&&$("btn-add-free-hour").addEventListener("click",async()=>{var e=(await gSync(["settings"])).settings||{},t=e.freeTimeHours||[];t.push({start:"18:00",end:"22:00"}),await sSync({settings:{...e,freeTimeHours:t}}),loadExtendedSettings()}),$("btn-save-set")&&$("btn-save-set").addEventListener("click",async()=>{var e=(await gSync(["settings"])).settings||{};e.passcodeEnabled=$("tog-pc")?.checked||!1,e.funnyBlocked=!1!==$("tog-fun")?.checked,e.customBlockMsg=$("block-msg")?.value?.trim()||"",e.tabLimit=parseInt($("tab-limit-input")?.value)||0,e.timeWarningEnabled=!1!==$("tog-time-warn")?.checked,e.threshFocus=parseInt($("thresh-focus")?.value)||75,e.threshBalanced=parseInt($("thresh-balanced")?.value)||40,e.threshDistract=parseInt($("thresh-distract")?.value)||60,e.showBadge=!1!==$("tog-badge")?.checked,e.idleTimeout=parseInt($("idle-timeout-sel")?.value)||60,e.welcomeBackThresh=parseInt($("welcome-back-thresh-sel")?.value)||10,e.passcodeHash&&(e.lockDash=$("lock-dash")?.checked||!1,e.lockSettings=!1!==$("lock-settings")?.checked,e.lockStop=!1!==$("lock-stop")?.checked,e.lockRules=!1!==$("lock-rules")?.checked,e.lockTags=!1!==$("lock-tags")?.checked,e.lockDanger=!1!==$("lock-danger")?.checked,e.lockTweaks=!1!==$("lock-tweaks")?.checked,e.lockBDF=!$("lock-bdf")||$("lock-bdf").checked);var t=[];document.querySelectorAll(".fh-start").forEach((e,a)=>{var n=document.querySelectorAll(".fh-end")[a];e&&n&&t.push({start:e.value,end:n.value})}),e.freeTimeHours=t,await sSync({settings:e}),toast("Settings saved","ok"),loadExtendedSettings(),msg("UPDATE_IDLE")}),$("btn-pin")&&$("btn-pin").addEventListener("click",async()=>{var e=$("pin1").value,t=$("pin2").value,a=$("pin-msg");if(4!==e.length||!/^\d{4}$/.test(e))return a.textContent="PIN must be exactly 4 digits",void(a.style.color="var(--red)");if(e!==t)return a.textContent="PINs do not match",void(a.style.color="var(--red)");var n=(await gSync(["settings"])).settings||{};n.passcodeHash||(n.lockDash=!1,n.lockSettings=!1,n.lockStop=!0,n.lockRules=!0,n.lockTags=!0,n.lockDanger=!0,n.lockBDF=!0,n.lockTweaks=!0),n.passcodeHash=await hashPin(e),n.passcodeEnabled=!0,await sSync({settings:n}),$("pin1").value="",$("pin2").value="",a.textContent="",toast("PIN saved & active","ok"),loadExtendedSettings()}),$("btn-remove-pin")&&$("btn-remove-pin").addEventListener("click",async()=>{if(await showPass(!0,"Verification Required","Enter current PIN to remove it.")){var e=(await gSync(["settings"])).settings||{};e.passcodeHash=null,e.passcodeEnabled=!1,await sSync({settings:e}),toast("PIN Removed","ok"),loadExtendedSettings()}}),$("btn-change-pin")&&$("btn-change-pin").addEventListener("click",async()=>{await showPass(!0,"Verification Required","Enter current PIN to change it.")&&($("pin-manage-box").style.display="none",$("pin-setup-box").style.display="flex")}),$("btn-rst-stats")&&$("btn-rst-stats").addEventListener("click",async()=>{await promptPinIfEnabled("lockDanger")&&confirm("Delete ALL statistics?")&&(await sLocal({daily:{}}),toast("Stats reset","ok"),loadAnalytics())}),$("btn-clr-rules")&&$("btn-clr-rules").addEventListener("click",async()=>{await promptPinIfEnabled("lockDanger")&&confirm("Remove all block/allow rules?")&&(rules=[],allowList=[],await sLocal({blockRules:[],allowList:[]}),await msg("TRIGGER_DNR_UPDATE"),renderCombined(),toast("Rules cleared","ok"))}),$("btn-clr-cats")&&$("btn-clr-cats").addEventListener("click",async()=>{await promptPinIfEnabled("lockDanger")&&confirm("Remove all custom categories?")&&(siteCategories={},await sLocal({siteCategories:{}}),renderCategories(),toast("Categories cleared","ok"))}),$("btn-clear-history")&&$("btn-clear-history").addEventListener("click",async()=>{confirm("Clear history?")&&(await msg("CLEAR_FOCUS_HISTORY"),loadFocusHistory(),toast("Cleared","ok"))});var siteNotes={};function openNoteModal(e){$("note-domain").value=e,$("note-domain-display").textContent=e,$("note-textarea").value=siteNotes[e]||"",$("notesModal").classList.remove("hide")}$("notesModal")&&$("notesModal").addEventListener("click",function(e){e.target===this&&$("notesModal").classList.add("hide")}),$("note-cancel")&&$("note-cancel").addEventListener("click",()=>$("notesModal").classList.add("hide")),$("note-save")&&$("note-save").addEventListener("click",async()=>{var e=$("note-domain").value,t=$("note-textarea").value.trim();await sLocal({siteNotes:{...siteNotes,[e]:t}}),siteNotes[e]=t,$("notesModal").classList.add("hide"),toast("Saved","ok"),renderCombined()});var _origRF=renderFocus,_focusTick=null;function startSmoothFocusTick(e){_focusTick&&clearInterval(_focusTick),e&&e.active&&!e.paused&&e.phaseEndsAt&&(_focusTick=setInterval(function(){var t=Math.max(0,Math.round((e.phaseEndsAt-Date.now())/1e3)),a="work"===e.phase,n=e.fullDuration||(a?1500:"long_break"===e.phase?900:300);$("frf")&&$("frf").setAttribute("stroke-dashoffset",(FCIRC*Math.max(0,1-t/n)).toFixed(1)),$("ftb")&&($("ftb").textContent=fmtT(t));const i=document.createElement("canvas");i.width=32,i.height=32;const s=i.getContext("2d"),o=document.documentElement.classList.contains("light");s.fillStyle=o?"#f1f5f9":"#121212",s.beginPath(),s.arc(16,16,16,0,2*Math.PI),s.fill(),s.strokeStyle="#2E2E2E",s.lineWidth=4,s.beginPath(),s.arc(16,16,12,0,2*Math.PI),s.stroke(),s.strokeStyle=a?"#05D581":"#F6B846",s.lineCap="round",s.beginPath(),s.arc(16,16,12,-Math.PI/2,-Math.PI/2+2*Math.PI*(1-t/n)),s.stroke();let r=document.getElementById("dynamic-favicon");r&&(r.href=i.toDataURL()),t<=0&&(clearInterval(_focusTick),_focusTick=null,setTimeout(async()=>{var e=await msg("FOCUS_GET_STATE"),t=(await gSync(["settings"])).settings||{};renderFocus(e?.focusState,t.focusWork||25),loadFocusHistory()},1500))},1e3))}renderFocus=function(e,t){if(_origRF(e,t),e&&e.active&&!e.paused&&e.phaseEndsAt)startSmoothFocusTick(e);else{_focusTick&&(clearInterval(_focusTick),_focusTick=null);let e=document.getElementById("dynamic-favicon");e&&(e.href="../icons/icon128.png")}},async function(){hideAnalyticsHeader();const e=await msg("GET_AUTO_CATEGORIES");e&&e.autoCategories&&(AUTO_CATEGORIES=e.autoCategories),await checkGate(),await Promise.all([loadSettings(),loadRules(),loadCategories(),loadVisitedSites(),loadFocusUI(),loadWeeklyGoalSettings(),loadExtendedSettings()]),loadAnalytics(),renderCategories(),renderPresetButtons(),loadFocusHistory(),"#settings"===window.location.hash&&document.querySelector('.ni[data-tab="settings"]').click()}();
+var $ = function (e) {
+    return document.getElementById(e)
+},
+    // Bug #4 fix: module-level rAF handles to cancel previous animation loops
+    _barChartRaf = null,
+    _trendChartRaf = null,
+    // Bug #5 fix: single reusable off-screen canvas for favicon painting
+    _favCanvas = (() => { const c = document.createElement("canvas"); c.width = 32; c.height = 32; return c; })(),
+    // Bug #8 fix: undo toast stack counter
+    _toastStackCount = 0,
+    rules = [],
+    allowList = [],
+    siteCategories = {},
+    visitedSites = [],
+    AUTO_CATEGORIES = {},
+    FCIRC = 2 * Math.PI * 106,
+    selectedCat = "all",
+    currentView = "today",
+    analyticsRange = 7,
+    siteRange = 7,
+    trendRange = 7,
+    dailyRange = 7,           // FF v4.2: was implicit 45, now defaults to 7d for instant load
+    dailyCustomFrom = null,   // FF v4.2: ISO date string (YYYY-MM-DD)
+    dailyCustomTo = null,
+    overviewCustomFrom = null,  // FF v4.4
+    overviewCustomTo = null,    // FF v4.4
+    trendCustomFrom = null,     // FF v4.4
+    trendCustomTo = null,       // FF v4.4
+    currentATab = "overview",
+    isBulkMode = !1,
+    bulkSelected = new Set,
+    DEFAULT_CATS = ["productivity", "learning", "distraction", "communication", "uncategorized"],
+    // FF v6.16: CAT_META + GRANULAR_SITES used to be redefined here. They now
+    // live in src/lib/constants.js so popup.js + dashboard.js stay in sync.
+    CAT_META = self.CAT_META || {};
+const GRANULAR_SITES_DASHBOARD = self.GRANULAR_SITES || {};
+// Auto-generate Smart Presets from AUTO_CATEGORIES (single source of truth in constants.js).
+// If you add a site to AUTO_CATEGORIES, it automatically shows up here too.
+var PRESETS = (function () {
+    var packNames = { distraction: "Distraction Pack", communication: "Communication Pack", productivity: "Productivity Pack", learning: "Study Pack" };
+    var packs = {};
+    Object.entries(AUTO_CATEGORIES).forEach(function (entry) {
+        var domain = entry[0], cat = entry[1];
+        var name = packNames[cat];
+        if (!name) return;
+        if (!packs[name]) packs[name] = [];
+        packs[name].push({ d: domain, c: cat });
+    });
+    return packs;
+})();
+
+// FF v6.18: msg() now lives in utils.js (shared with popup.js).
+// Removed the duplicate that used to live here. See utils.js for the
+// improved version with transient-error-only retries.
+
+
+function easeOutQuart(e) {
+    return 1 - Math.pow(1 - e, 4)
+}
+
+function hideAnalyticsHeader() {
+    const _desc = $("analytics-page-header-desc");
+    if (_desc) {
+        _desc.style.display = "none";
+        const _parent = _desc.parentElement;
+        if (_parent) {
+            Array.from(_parent.children).forEach(e => {
+                if ("Analytics" === e.textContent.trim()) e.style.display = "none";
+            });
+        }
+    }
+    document.querySelectorAll('[data-atab="trend"]').forEach(e => e.textContent = "Comparison");
+}
+async function applyTheme() {
+    const e = await gLocal(["theme"]),
+        t = "light" === e.theme,
+        a = "cinematic" === e.theme;
+    document.documentElement.classList.toggle("light", t), document.documentElement.classList.toggle("cinematic", a), document.documentElement.setAttribute("data-os-theme", "nothing")
+}
+
+function getEffectiveCat(e) {
+    if (siteCategories[e]) return {
+        cat: siteCategories[e],
+        auto: !1
+    };
+    for (var t = e.split("."), a = 1; a < t.length - 1; a++) {
+        var n = t.slice(a).join(".");
+        if (siteCategories[n]) return {
+            cat: siteCategories[n],
+            auto: !1
+        }
+    }
+    if (AUTO_CATEGORIES[e]) return {
+        cat: AUTO_CATEGORIES[e],
+        auto: !0
+    };
+    var i = t.length > 2 ? t.slice(1).join(".") : e;
+    return AUTO_CATEGORIES[i] ? {
+        cat: AUTO_CATEGORIES[i],
+        auto: !0
+    } : {
+        cat: "uncategorized",
+        auto: !1
+    }
+}
+
+function catColor(e) {
+    return (CAT_META[e] || {
+        color: "#555555"
+    }).color
+}
+
+function catEmoji(e) {
+    return (CAT_META[e] || {
+        emoji: "🏷️"
+    }).emoji
+}
+
+function catLabel(e, t) {
+    var a = (CAT_META[e] || {
+        label: e
+    }).label;
+    return t ? a + " ✨" : a
+}
+
+function allCats() {
+    return DEFAULT_CATS;
+}
+
+function uid() {
+    return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36));
+}
+// Bug #3 fix: sanitize domain strings before injecting into innerHTML
+function sanitizeDomain(d) {
+    return String(d).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+applyTheme(), chrome.storage.onChanged.addListener((e, t) => {
+    "local" === t && e.theme && (applyTheme(), loadAnalytics()), "sync" === t && e.settings && applyTheme()
+}), $("btn-dark-mode") && $("btn-dark-mode").addEventListener("click", () => sLocal({
+    theme: "dark"
+})), $("btn-light-mode") && $("btn-light-mode").addEventListener("click", () => sLocal({
+    theme: "light"
+})), $("btn-cinematic-mode") && $("btn-cinematic-mode").addEventListener("click", () => sLocal({
+    theme: "cinematic"
+}));
+var fmtT = fmtTimer;
+
+function toast(e, t) {
+    // Bug #7 fix: dfferentiate toast duration by severity
+    const TOAST_DURATION = { ok: 3500, er: 5000, err: 5000 };
+    var a = $("toast");
+    if (!a) return;
+    const isError = t === "er" || t === "err";
+    const prefix = isError ? "✗ " : ("ok" === t ? "✓ " : "");
+    a.textContent = prefix + e;
+    a.className = "toast " + (isError ? "er" : (t || ""));
+    clearTimeout(a._tid);
+    a._tid = setTimeout(() => a.className = "toast hide", TOAST_DURATION[t] ?? 3500);
+}
+var pcRes = null,
+    pcBuf = "";
+
+function showPass(e = !1, t = "Settings Locked", a = "Enter your 6-digit PIN to continue") {
+    return new Promise(n => {
+        pcRes = n, pcBuf = "", updDots(), $("pc-title") && ($("pc-title").textContent = t), $("pc-desc") && ($("pc-desc").textContent = a), $("pcerr").classList.add("hide"), e ? $("pccancel").classList.remove("hide") : $("pccancel").classList.add("hide"), $("pcOverlay").classList.remove("hide")
+    })
+}
+
+function updDots() {
+    $("pdots").querySelectorAll("span").forEach((e, t) => e.classList.toggle("on", t < pcBuf.length))
+}
+async function checkGate() {
+    var e = (await gSync(["settings"])).settings || {};
+    return !e.passcodeHash || !0 !== e.lockDash || showPass()
+}
+async function promptPinIfEnabled(e) {
+    var t = (await gSync(["settings"])).settings || {};
+    return !t.passcodeHash || !1 === t[e] || await showPass(!0, "Verification Required", "Enter your PIN to perform this action.")
+}
+document.addEventListener("keydown", e => {
+    const t = $("pcOverlay");
+    t && !t.classList.contains("hide") && (e.key >= "0" && e.key <= "9" ? (e.preventDefault(), e.stopPropagation(), pcBuf.length < 6 && (pcBuf += e.key, updDots())) : "Backspace" === e.key ? (e.preventDefault(), e.stopPropagation(), pcBuf = pcBuf.slice(0, -1), updDots()) : "Enter" === e.key ? (e.preventDefault(), e.stopPropagation(), pcBuf.length >= 4 && $("pcok").click()) : "Escape" === e.key && $("pccancel") && !$("pccancel").classList.contains("hide") && (e.preventDefault(), e.stopPropagation(), $("pccancel").click()))
+}, !0), $("pccancel").addEventListener("click", () => {
+    $("pcOverlay").classList.add("hide"), pcRes && pcRes(!1)
+}), document.querySelectorAll(".pk[data-n]").forEach(e => e.addEventListener("click", () => {
+    pcBuf.length >= 6 || (pcBuf += e.getAttribute("data-n"), updDots())
+})), $("pclr").addEventListener("click", () => {
+    pcBuf = pcBuf.slice(0, -1), updDots()
+}), $("pcok").addEventListener("click", async () => {
+    if (pcBuf.length >= 4) {
+        var e = await gSync(["settings"]);
+        await hashPin(pcBuf) === (e.settings || {}).passcodeHash ? ($("pcOverlay").classList.add("hide"), pcRes && pcRes(!0)) : ($("pcerr").classList.remove("hide"), pcBuf = "", updDots())
+    }
+});
+let activeScrubDay = null,
+    activeScrubDom = null,
+    activeScrubSecs = 0;
+
+function injectScrubModal() {
+    if (!$("scrubModal")) {
+        var e = document.createElement("div");
+        e.id = "scrubModal", e.className = "overlay hide", e.innerHTML = '\n        <div class="card" style="width:100%;max-width:360px;padding:32px;text-align:center">\n           <div style="font-size:28px;margin-bottom:12px">⏱️</div>\n           <div style="font-size:18px;font-weight:800;margin-bottom:8px">Reduce Time</div>\n           <div style="font-size:13px;color:var(--tx2);margin-bottom:24px">How many minutes do you want to remove for <span id="scrub-dom" style="color:var(--tx);font-weight:700"></span>?</div>\n           <input type="number" id="scrub-mins" class="inp" style="width:100%;font-size:24px;text-align:center;font-weight:800;margin-bottom:24px" placeholder="Minutes">\n           <div style="display:flex;gap:12px;">\n               <button class="bs" id="scrub-cancel" style="flex:1">Cancel</button>\n               <button class="bp" id="scrub-save" style="flex:1;background:var(--red);color:#fff;border-color:var(--red)">Remove</button>\n           </div>\n        </div>\n    ', document.body.appendChild(e), $("scrub-cancel").onclick = () => $("scrubModal").classList.add("hide"), $("scrub-save").onclick = async () => {
+            let e = parseInt($("scrub-mins").value) || 0;
+            if (e <= 0) return;
+            let t = 60 * e;
+            t > activeScrubSecs && (t = activeScrubSecs);
+            // FF v4.4: Dexie-aware scrub. Writes to IndexedDB via SW message instead of legacy chrome.storage.local.daily.
+            const res = await msg("STATS_SCRUB_DAY", { day: activeScrubDay, domain: activeScrubDom, secs: t });
+            if (res && res.ok) { toast("Time adjusted", "ok"); loadAnalytics(); }
+            else { toast("Adjust failed", "er"); }
+            $("scrubModal").classList.add("hide")
+        }
+    }
+}
+
+function openScrubModal(e, t, a) {
+    $("scrubModal") || injectScrubModal(), activeScrubDay = e, activeScrubDom = t, activeScrubSecs = a, $("scrub-dom").textContent = t, $("scrub-mins").value = "", $("scrub-mins").max = Math.ceil(a / 60), $("scrubModal").classList.remove("hide"), setTimeout(() => $("scrub-mins").focus(), 50)
+}
+async function renderGranularBlocksUI() {
+    let e = document.getElementById("tab-sitemanager");
+    if (!e) return;
+    let t = document.getElementById("granular-ui-wrapper");
+    t || (t = document.createElement("div"), t.id = "granular-ui-wrapper", t.innerHTML = '\n           <div style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin:24px 0 12px;display:flex;align-items:center;gap:8px">\n               <span style="width:8px;height:8px;border-radius:50%;background:var(--blue)"></span>Advanced Site Tweaks\n           </div>\n           <div id="granular-blocks-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:32px;"></div>\n        ', e.insertBefore(t, e.firstChild));
+    let a = document.getElementById("granular-blocks-grid");
+
+    a.innerHTML = "";
+    var n = (await gLocal(["granularRules"])).granularRules || {};
+    Object.keys(GRANULAR_SITES_DASHBOARD).forEach(e => {
+        var t = document.createElement("div");
+        t.className = "card";
+        var i = `<div style="padding:16px; border-bottom:1px solid var(--bd); font-weight:800; display:flex; align-items:center; gap:8px;">${getFav(e)} ${e}</div>`,
+            s = '<div style="padding:16px; display:flex; flex-direction:column; gap:12px;">';
+        GRANULAR_SITES_DASHBOARD[e].forEach(t => {
+            var a = n[e] && n[e][t.id] ? "checked" : "";
+            s += `\n              <div style="display:flex; justify-content:space-between; align-items:center;">\n                 <span style="font-size:13px; font-weight:600; color:var(--tx2)">${t.label}</span>\n                 <label class="tog"><input type="checkbox" class="g-db-cb" data-d="${e}" data-r="${t.id}" ${a}><span class="ttrack"></span></label>\n              </div>`
+        }), s += "</div>", t.innerHTML = i + s, a.appendChild(t)
+    }), document.querySelectorAll(".g-db-cb").forEach(e => {
+        e.addEventListener("change", async e => {
+            // FF v4.8 — PIN only when DISABLING (un-hiding) a tweak.
+            const turningOff = !e.target.checked;
+            const okPin = turningOff ? await promptPinIfEnabled("lockTweaks") : true;
+            if (okPin) {
+                var t = e.target.getAttribute("data-d"),
+                    a = e.target.getAttribute("data-r"),
+                    n = e.target.checked,
+                    i = (await gLocal(["granularRules"])).granularRules || {};
+                i[t] || (i[t] = {}), i[t][a] = n, await sLocal({
+                    granularRules: i
+                })
+            } else e.target.checked = !e.target.checked
+        })
+    })
+}
+async function saveRulesAndSync(newRules) {
+    rules = newRules;
+    await sLocal({ blockRules: newRules });
+
+    // Sync to cooldownDomains and cooldownSettings for the backend content script
+    const cds = [];
+    const css = {};
+    newRules.forEach(r => {
+        if (r.cooldownEnabled) {
+            cds.push(r.domain);
+            css[r.domain] = {
+                timer: parseInt(r.cooldownTimer, 10) || 10,
+                frequency: r.cooldownFrequency || "always"
+            };
+        }
+    });
+
+    await msg("SET_COOLDOWNS", { cooldowns: cds });
+    await msg("SET_COOLDOWN_SETTINGS", { settings: css });
+}
+
+async function loadRules() {
+    var e = await gLocal(["blockRules", "allowList"]);
+    const cdResp = await msg("GET_COOLDOWNS");
+    const legacyCooldowns = cdResp?.cooldowns || [];
+    const legacySettings = cdResp?.settings || {};
+
+    let blRules = e.blockRules || [];
+    let migrated = false;
+
+    blRules = blRules.map(r => {
+        if (void 0 !== r.mode) {
+            r.focusOnly = "focus_only" === r.mode;
+            r.timeLimitEnabled = "time_limit" === r.mode;
+            r.scheduleEnabled = "schedule" === r.mode || Array.isArray(r.schedules) && r.schedules.length > 0;
+            delete r.mode;
+        }
+        return r;
+    });
+
+    // Migrating any separate old cool-downs to unified block rules
+    legacyCooldowns.forEach(domain => {
+        if (!blRules.some(r => r.domain === domain)) {
+            const cfg = legacySettings[domain] || { timer: 10, frequency: "always" };
+            blRules.push({
+                id: uid(),
+                domain: domain,
+                category: "distraction",
+                instantBlock: false,
+                focusOnly: false,
+                timeLimitEnabled: false,
+                dailyLimitSecs: 0,
+                scheduleEnabled: false,
+                schedules: [],
+                activeDays: null,
+                cooldownEnabled: true,
+                cooldownTimer: cfg.timer || 10,
+                cooldownFrequency: cfg.frequency || "always"
+            });
+            migrated = true;
+        }
+    });
+
+    if (migrated) {
+        await sLocal({ blockRules: blRules });
+    }
+
+    rules = blRules;
+    allowList = e.allowList || [];
+    renderCombined();
+}
+
+function ruleMode(e) {
+    var t = [];
+    if (e.instantBlock) t.push("Always");
+    if (e.focusOnly) t.push("Focus");
+    if (e.timeLimitEnabled) t.push("Limit");
+    if (e.scheduleEnabled) t.push("Schedule");
+    if (e.cooldownEnabled) t.push("Cool-down");
+    return t.length ? t.join(", ") : "Always";
+}
+
+function ruleSchedLabel(e) {
+    return e.scheduleEnabled && Array.isArray(e.schedules) && e.schedules.length ? e.schedules.map(e => e.start + "–" + e.end).join(", ") : "—"
+}
+
+async function renderCombined() {
+    var e = $("combined-list");
+    e.className = isBulkMode ? "bulk-mode" : "", e.querySelectorAll(".brow").forEach(e => e.remove());
+
+    $("combined-empty") && (rules.length || allowList.length ? $("combined-empty").style.display = "none" : ($("combined-empty").style.display = "flex", $("combined-empty").innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 24px;width:100%;"><svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.2;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><p style="font-size:16px;font-weight:800;color:var(--tx2);margin:0;">No rules yet</p><p style="font-size:13px;color:var(--tx3);margin:0;text-align:center;">Block distracting sites or allow exceptions to get started.</p><div style="display:flex;gap:10px;margin-top:4px;"><button class="bp" id="empty-state-add-block" style="padding:10px 24px;font-size:14px;font-weight:800;">+ Block a Site</button><button class="bs" id="empty-state-add-allow" style="padding:10px 20px;font-size:14px;font-weight:700;">+ Allow a Site</button></div></div>')),
+        setTimeout(() => {
+            const _eb = $("empty-state-add-block"), _ea = $("empty-state-add-allow");
+            if (_eb) _eb.onclick = () => $("btn-add-rule") && $("btn-add-rule").click();
+            if (_ea) _ea.onclick = () => $("btn-add-allow") && $("btn-add-allow").click();
+        }, 0);
+
+    rules.forEach(function (t) {
+        var a = document.createElement("div");
+        const _sd = sanitizeDomain(t.domain);
+
+        let limitText = "—";
+        if (t.timeLimitEnabled && t.dailyLimitSecs >= 0) {
+            limitText = Math.round(t.dailyLimitSecs / 60) + " min/day";
+        }
+        if (t.cooldownEnabled) {
+            limitText = (limitText !== "—" ? limitText + " / " : "") + `⏳ ${t.cooldownTimer || 10}s wait`;
+        }
+
+        let schedText = ruleSchedLabel(t);
+        if (t.cooldownEnabled) {
+            const freqLabel = t.cooldownFrequency === "everyVisit" || t.cooldownFrequency === "always" ? "Every visit" : (t.cooldownFrequency === "oncePerDay" || t.cooldownFrequency === "daily" ? "Once a day" : "Every 10 min");
+            schedText = (schedText !== "—" ? schedText + " / " : "") + freqLabel;
+        }
+
+        a.className = "brow brow-rules", a.innerHTML = `\n      <input type="checkbox" class="bulk-cb" data-id="${t.id}">\n      <span class="dom" style="display:flex;align-items:center;gap:8px;">${getFav(t.domain)} ${_sd}</span>\n      <span><span class="cbadge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)">Blocked</span></span>\n      <span class="mtxt">${ruleMode(t)}</span>\n      <span class="ltxt">${limitText}</span>\n      <span class="stxt">${schedText}</span>\n      <span class="ract"><button class="bic edit-r" data-id="${t.id}">✎</button><button class="bic del del-r" data-id="${t.id}">✕</button></span>`, e.appendChild(a)
+    }), allowList.forEach(function (t) {
+        var a = document.createElement("div");
+        const _sa = sanitizeDomain(t);
+        a.className = "brow brow-rules allow-row", a.innerHTML = `\n      <input type="checkbox" class="bulk-cb" data-d="${_sa}">\n      <span class="dom" style="display:flex;align-items:center;gap:8px;">${getFav(t)} ${_sa}</span>\n      <span><span class="cbadge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">Allowed</span></span>\n      <span class="mtxt" style="color:var(--tx3)">Always accessible</span><span class="ltxt">—</span><span class="stxt">—</span>\n      <span class="ract"><button class="bic del del-a" data-d="${_sa}">✕</button></span>`, e.appendChild(a)
+    }), e.querySelectorAll(".edit-r").forEach(e => e.addEventListener("click", async () => {
+        await promptPinIfEnabled("lockRules") && openModal(e.getAttribute("data-id"))
+    })), e.querySelectorAll(".del-r").forEach(e => e.addEventListener("click", () => delRule(e.getAttribute("data-id")))), e.querySelectorAll(".del-a").forEach(e => e.addEventListener("click", () => delAllow(e.getAttribute("data-d")))), e.querySelectorAll(".bulk-cb").forEach(e => {
+        e.addEventListener("change", () => {
+            let t = e.getAttribute("data-id") || e.getAttribute("data-d");
+            e.checked ? bulkSelected.add(t) : bulkSelected.delete(t)
+        })
+    })
+}
+
+function addBlockedSite(e, t, a) {
+    if (rules.find(t => t.domain === e)) return toast(e + " already blocked", "er"), null;
+    var n = {
+        id: uid(),
+        domain: e,
+        category: t,
+        redirectUrl: a || null,
+        instantBlock: !0,
+        focusOnly: !1,
+        timeLimitEnabled: !1,
+        dailyLimitSecs: 0,
+        scheduleEnabled: !1,
+        schedules: []
+    };
+    return rules.push(n), n
+}
+async function delRule(e) {
+    if (!await promptPinIfEnabled("lockRules")) return;
+    let t = await gLocal(["blockRules"]);
+    const _deleted = (t.blockRules || []).find(r => r.id === e);
+    rules = (rules = t.blockRules || []).filter(t => t.id !== e);
+    await saveRulesAndSync(rules);
+    await msg("TRIGGER_DNR_UPDATE"); renderCombined();
+    // FF v6.18: Undo toast — 10-second window with live countdown (was 5s)
+    if (_deleted) {
+        let _undone = false;
+        const _undoBtn = document.createElement("button");
+        _undoBtn.textContent = "Undo (10s)"; _undoBtn.style.cssText = "margin-left:12px;background:var(--bg4);border:1px solid var(--bd2);color:var(--tx);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;";
+        _undoBtn.onclick = async () => {
+            if (_undone) return; _undone = true;
+            const _r2 = await gLocal(["blockRules"]);
+            const _arr = _r2.blockRules || []; _arr.push(_deleted);
+            rules = _arr; await saveRulesAndSync(_arr);
+            await msg("TRIGGER_DNR_UPDATE"); renderCombined(); toast("Undo: rule restored", "ok");
+        };
+        const _stackIdx = _toastStackCount++;
+        const _bottomPx = 80 + _stackIdx * 62;
+        const _td = document.createElement("div");
+        _td.style.cssText = `display:flex;align-items:center;gap:4px;position:fixed;bottom:${_bottomPx}px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);padding:10px 18px;border-radius:12px;font-size:14px;font-weight:700;z-index:9999;box-shadow:var(--shadow-md);animation:fadeIn .2s;`;
+        _td.innerHTML = "<span>Rule deleted</span>"; _td.appendChild(_undoBtn);
+        document.body.appendChild(_td);
+        let _secs = 10;
+        const _cdown = setInterval(() => { _secs--; if (!_undone && _undoBtn.parentNode) _undoBtn.textContent = `Undo (${_secs}s)`; if (_secs <= 0) clearInterval(_cdown); }, 1000);
+        setTimeout(() => { clearInterval(_cdown); _td.remove(); _toastStackCount = Math.max(0, _toastStackCount - 1); }, 10000);
+    }
+}
+async function delAllow(e) {
+    if (!await promptPinIfEnabled("lockRules")) return;
+    let t = await gLocal(["allowList"]);
+    const _deletedAllow = e;
+    allowList = (allowList = t.allowList || []).filter(t => t !== e);
+    await sLocal({ allowList: allowList });
+    await msg("TRIGGER_DNR_UPDATE"); renderCombined();
+    // FF v6.18: undo allow-rule — 10 seconds with live countdown
+    let _undoneAllow = false;
+    const _undoBtnA = document.createElement("button");
+    _undoBtnA.textContent = "Undo (10s)"; _undoBtnA.style.cssText = "margin-left:12px;background:var(--bg4);border:1px solid var(--bd2);color:var(--tx);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;";
+    _undoBtnA.onclick = async () => {
+        if (_undoneAllow) return; _undoneAllow = true;
+        const _r2 = await gLocal(["allowList"]); const _arr = _r2.allowList || [];
+        if (!_arr.includes(_deletedAllow)) _arr.push(_deletedAllow);
+        allowList = _arr; await sLocal({ allowList: _arr });
+        await msg("TRIGGER_DNR_UPDATE"); renderCombined(); toast("Undo: allow-rule restored", "ok");
+    };
+    const _stackIdxA = _toastStackCount++;
+    const _bottomPxA = 80 + _stackIdxA * 62;
+    const _tdA = document.createElement("div");
+    _tdA.style.cssText = `display:flex;align-items:center;gap:4px;position:fixed;bottom:${_bottomPxA}px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);padding:10px 18px;border-radius:12px;font-size:14px;font-weight:700;z-index:9999;box-shadow:var(--shadow-md);`;
+    _tdA.innerHTML = "<span>Allow-rule removed</span>"; _tdA.appendChild(_undoBtnA);
+    document.body.appendChild(_tdA);
+    let _secsA = 10;
+    const _cdownA = setInterval(() => { _secsA--; if (!_undoneAllow && _undoBtnA.parentNode) _undoBtnA.textContent = `Undo (${_secsA}s)`; if (_secsA <= 0) clearInterval(_cdownA); }, 1000);
+    setTimeout(() => { clearInterval(_cdownA); if (!_undoneAllow) toast("Removed", "ok"); _tdA.remove(); _toastStackCount = Math.max(0, _toastStackCount - 1); }, 10000);
+}
+
+function renderScheduleSlots(e) {
+    var t = $("schedule-slots");
+    t.innerHTML = "", (e || []).forEach((e, a) => {
+        var n = document.createElement("div");
+        n.className = "sched-slot", n.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:12px;background:var(--bg3);padding:12px 16px;border-radius:12px;border:1px solid var(--bd)", n.innerHTML = `<span style="font-size:13px;color:var(--tx2);font-weight:700">From</span><input type="time" class="inp sched-start" value="${e.start || "09:00"}" style="flex:1"/>\n      <span style="font-size:13px;color:var(--tx2);font-weight:700">to</span><input type="time" class="inp sched-end" value="${e.end || "21:00"}" style="flex:1"/>\n      <button class="bic del rm-slot" data-idx="${a}">✕</button>`, t.appendChild(n)
+    }), t.querySelectorAll(".rm-slot").forEach(e => e.addEventListener("click", () => {
+        var t = getSlots();
+        t.splice(parseInt(e.getAttribute("data-idx"), 10), 1), renderScheduleSlots(t)
+    }))
+}
+
+function getSlots() {
+    var e = [];
+    return $("schedule-slots").querySelectorAll(".sched-slot").forEach(t => {
+        var a = t.querySelector(".sched-start").value,
+            n = t.querySelector(".sched-end").value;
+        a && n && e.push({
+            start: a,
+            end: n
+        })
+    }), e
+}
+
+function openModal(e) {
+    var t = rules.find(t => t.id === e);
+    if (!t) return;
+    $("m-id").value = e;
+    $("cat-inp").value = t.domain;
+    $("block-cat").value = t.category || "distraction";
+    $("cat-redir").value = t.redirectUrl || "";
+    let isInstant = !!t.instantBlock;
+    let isTimeLimit = !!t.timeLimitEnabled;
+
+    // Cool-down Settings
+    $("m-cd-wait").value = t.cooldownTimer || 10;
+    $("m-cd-freq").value = t.cooldownFrequency || "always";
+
+    if (isInstant) {
+        isTimeLimit = true;
+        $("m-lim").value = 0;
+    } else {
+        $("m-lim").value = (t.dailyLimitSecs !== undefined && t.dailyLimitSecs !== null) ? Math.round(t.dailyLimitSecs / 60) : 30;
+    }
+
+    $("m-mode-focus").checked = !!t.focusOnly;
+    $("m-mode-limit").checked = isTimeLimit;
+    $("m-mode-schedule").checked = !!t.scheduleEnabled;
+    $("m-mode-cooldown").checked = !!t.cooldownEnabled;
+
+    $("mf-tl").style.display = isTimeLimit ? "block" : "none";
+    $("mf-sc").style.display = t.scheduleEnabled ? "block" : "none";
+    $("mf-cd").style.display = t.cooldownEnabled ? "block" : "none";
+
+    renderScheduleSlots(Array.isArray(t.schedules) && t.schedules.length ? t.schedules : t.scheduleEnabled && t.scheduleStart ? [{
+        start: t.scheduleStart,
+        end: t.scheduleEnd || "21:00"
+    }] : [{
+        start: "09:00",
+        end: "21:00"
+    }]);
+    const _allDays = [0, 1, 2, 3, 4, 5, 6];
+    const _activeDays = Array.isArray(t.activeDays) ? t.activeDays : _allDays;
+    document.querySelectorAll('.m-day-cb').forEach(cb => {
+        const fresh = cb.cloneNode(true);
+        cb.parentNode.replaceChild(fresh, cb);
+    });
+    document.querySelectorAll('.m-day-cb').forEach(cb => {
+        cb.checked = _activeDays.includes(parseInt(cb.value));
+        const _lbl = cb.closest('label') || cb.parentElement;
+        if (_lbl) {
+            _lbl.style.background = cb.checked ? 'var(--green-bg)' : '';
+            _lbl.style.borderColor = cb.checked ? 'var(--green-bd)' : '';
+            _lbl.style.color = cb.checked ? 'var(--green)' : '';
+        }
+        cb.addEventListener('change', function () {
+            const _l = this.closest('label') || this.parentElement;
+            if (_l) {
+                _l.style.background = this.checked ? 'var(--green-bg)' : '';
+                _l.style.borderColor = this.checked ? 'var(--green-bd)' : '';
+                _l.style.color = this.checked ? 'var(--green)' : '';
+            }
+        });
+    });
+    if ($("add-rule-modal-title")) $("add-rule-modal-title").textContent = "Edit Block Rule";
+    if (typeof switchRuleModalTab === "function") switchRuleModalTab("block");
+    if ($("add-rule-modal")) $("add-rule-modal").classList.remove("hide");
+}
+async function applyPreset(e) {
+    var t = PRESETS[e];
+    if (t) {
+        var a = siteCategories;
+        for (var n of (t.forEach(e => a[e.d] = e.c), await sLocal({
+            siteCategories: a
+        }), siteCategories = a, t)) await msg("CATEGORIZE_SITE", {
+            domain: n.d,
+            category: n.c
+        });
+        renderCategories(), toast("Applied " + e, "ok")
+    }
+}
+
+
+async function loadCategories() {
+    var e = await gLocal(["siteCategories"]);
+    siteCategories = e.siteCategories || {}
+}
+async function loadVisitedSites() {
+    var e = await msg("GET_VISITED_SITES");
+    visitedSites = e?.visitedSites || []
+}
+
+function renderCatSquares() {
+    var e = $("cat-squares");
+    if (!e) return;
+    e.innerHTML = "";
+    const t = Array.from(new Set([...visitedSites, ...Object.keys(siteCategories)]));
+    // Feature: include "uncategorized" in Filter by Category and Smart Presets
+    ["all"].concat(allCats()).forEach(a => {
+        var n = "all" === a,
+            i = n ? {
+                label: "All Sites",
+                emoji: "🌍",
+                color: "var(--tx)"
+            } : CAT_META[a] || {
+                label: a,
+                emoji: "🏷️",
+                color: "#555"
+            },
+            s = 0;
+        n ? s = t.length : t.forEach(e => {
+            getEffectiveCat(e).cat === a && s++
+        });
+        var o = document.createElement("div");
+        o.className = "cat-sq" + (selectedCat === a ? " selected" : ""), o.style.borderColor = selectedCat === a ? i.color : void 0, o.innerHTML = `<div class="cat-sq-icon">${i.emoji}</div><div class="cat-sq-name" style="color:${selectedCat === a ? i.color : "var(--tx)"}">${i.label}</div><div class="cat-sq-count">${s} sites</div>`, o.addEventListener("click", () => {
+            selectedCat = a, renderCategories()
+        }), e.appendChild(o)
+    })
+}
+async function tagSite(e, t) {
+    siteCategories[e] = t, await msg("CATEGORIZE_SITE", {
+        domain: e,
+        category: t
+    }), renderCategories()
+}
+
+function renderCategories() {
+    renderCatSquares();
+    var e = $("cat-groups");
+    if (!e) return;
+    e.innerHTML = "";
+    var t = {};
+    Array.from(new Set([...visitedSites, ...Object.keys(siteCategories)])).forEach(e => {
+        var a = getEffectiveCat(e);
+        t[a.cat] || (t[a.cat] = []), t[a.cat].push({
+            domain: e,
+            auto: a.auto
+        })
+    }), Object.keys(t).length ? allCats().forEach(a => {
+        if (t[a] && t[a].length && ("all" === selectedCat || selectedCat === a)) {
+            var n = document.createElement("div");
+            n.className = "card", n.innerHTML = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px 16px;background:var(--bg3);border-radius:12px;border:1px solid var(--bd2)"><span style="width:12px;height:12px;border-radius:50%;background:${catColor(a)}"></span><span style="font-size:16px;font-weight:800;flex:1;color:var(--tx)">${catEmoji(a)} ${catLabel(a, !1)}</span><span style="font-size:12px;color:var(--tx3);background:var(--bg4);padding:6px 12px;border-radius:999px;font-weight:700">${t[a].length} sites</span></div>`;
+            var i = document.createElement("div");
+            t[a].forEach(e => {
+                var t = document.createElement("div");
+                t.style.cssText = "display:flex;align-items:center;gap:16px;padding:12px 16px;background:var(--bg2);border:1px solid var(--bd);border-radius:12px;margin-bottom:8px";
+                var n = `<select class="sel" data-domain="${e.domain}" style="padding:8px 12px;font-size:13px;width:auto">`;
+                allCats().forEach(e => n += `<option value="${e}"${e === a ? " selected" : ""}>${catEmoji(e)} ${catLabel(e, !1)}</option>`), n += "</select>", t.innerHTML = `<span style="font-family:monospace;font-size:15px;font-weight:700;flex:1;word-break:break-all;display:flex;align-items:center;gap:8px;">${getFav(e.domain)} ${e.domain} ${e.auto ? '<span style="font-size:11px;color:var(--tx3);" title="Auto-categorized">✨</span>' : ""}</span>${n}<button class="bic del rm-cat" data-domain="${e.domain}" ${e.auto ? 'disabled style="opacity:0.2"' : ""}>✕</button>`, i.appendChild(t)
+            }), i.querySelectorAll(".sel").forEach(e => e.addEventListener("change", async t => {
+                await tagSite(e.getAttribute("data-domain"), e.value)
+            })), i.querySelectorAll(".rm-cat").forEach(e => e.addEventListener("click", async () => {
+                delete siteCategories[e.getAttribute("data-domain")], await sLocal({
+                    siteCategories: siteCategories
+                }), renderCategories()
+            })), n.appendChild(i), e.appendChild(n)
+        }
+    }) : e.innerHTML = '<div class="card"><div class="empty">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>\n      <p>No sites visited yet.</p>\n    </div></div>'
+}
+
+function renderFocus(e, t = 25) {
+    if (!e || !e.active) {
+        $("frf") && $("frf").setAttribute("stroke-dashoffset", FCIRC), $("ftb") && ($("ftb").textContent = t + ":00"), $("fcyc") && ($("fcyc").textContent = "0 cycles"), $("fpb") && ($("fpb").textContent = "Work", $("fpb").style.color = "var(--green)"), $("frf") && ($("frf").style.stroke = "var(--green)"), $("sfd") && ($("sfd").className = "bdot"), $("btn-fs") && ($("btn-fs").style.display = ""), $("btn-fst") && ($("btn-fst").style.display = "none"), $("btn-fp") && ($("btn-fp").style.display = "none"), $("btn-skip") && ($("btn-skip").style.display = "none"), $("frf") && ($("frf").style.opacity = "1");
+        let e = document.getElementById("dynamic-favicon");
+        return void (e && (e.href = "../icons/icon128.png"))
+    }
+    $("sfd") && ($("sfd").className = "bdot on");
+    var a = "work" === e.phase,
+        n = e.fullDuration || (a ? 1500 : "long_break" === e.phase ? 900 : 300),
+        i = Math.max(0, 1 - Math.min(1, (e.remaining || 0) / n));
+    $("frf") && ($("frf").style.stroke = a ? "var(--green)" : "var(--amber)", $("frf").setAttribute("stroke-dashoffset", (FCIRC * i).toFixed(1))), $("fpb") && ($("fpb").style.color = a ? "var(--green)" : "var(--amber)", $("fpb").textContent = a ? "Work" : "long_break" === e.phase ? "Long Break" : "Short Break"), $("ftb") && ($("ftb").textContent = fmtT(e.remaining || 0)), $("fcyc") && ($("fcyc").textContent = (e.cyclesCompleted || 0) + " " + ((e.cyclesCompleted === 1) ? "cycle" : "cycles")), $("btn-fs") && ($("btn-fs").style.display = "none"), $("btn-fst") && ($("btn-fst").style.display = ""), $("btn-fp") && ($("btn-fp").style.display = "", e.paused ? (e.remaining === n ? $("btn-fp").textContent = "work" === e.phase ? "▶ Start Work" : "▶ Start Break" : $("btn-fp").textContent = "▶ Resume", $("frf") && ($("frf").style.opacity = "0.5")) : ($("btn-fp").textContent = "⏸ Pause", $("frf") && ($("frf").style.opacity = "1"))), $("btn-skip") && ($("btn-skip").style.display = a ? "none" : "");
+    // Bug #5 fix: reuse the single off-screen canvas instead of allocating each tick
+    const s = _favCanvas;
+    s.width = 32; s.height = 32; // resetting width clears the canvas
+    const o = s.getContext("2d"),
+        r = document.documentElement.classList.contains("light");
+    o.fillStyle = r ? "#f1f5f9" : "#121212", o.beginPath(), o.arc(16, 16, 16, 0, 2 * Math.PI), o.fill(), o.strokeStyle = "#2E2E2E", o.lineWidth = 4, o.beginPath(), o.arc(16, 16, 12, 0, 2 * Math.PI), o.stroke(), o.strokeStyle = a ? "#05D581" : "#F6B846", o.lineCap = "round", o.beginPath(), o.arc(16, 16, 12, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * (1 - i)), o.stroke();
+    let l = document.getElementById("dynamic-favicon");
+    l && (l.href = s.toDataURL())
+}
+async function getActiveWorkMins() {
+    try {
+        const raw = localStorage.getItem("ff.presets.v67");
+        if (raw) {
+            const store = JSON.parse(raw);
+            const ap = store.list.find(p => p.id === store.activeId) || store.list[0];
+            if (ap && ap.work) return ap.work;
+        }
+    } catch (_) { }
+    var t = (await gSync(["settings"])).settings || {};
+    return t.focusWork || 25;
+}
+
+async function loadFocusUI() {
+    var e = await msg("FOCUS_GET_STATE"),
+        a = await getActiveWorkMins();
+    renderFocus(e?.focusState, a)
+}
+// Bug #5 fix: accept pre-loaded settings to avoid double gSync when called alongside loadExtendedSettings
+async function loadSettings(preloadedSettings) {
+    var e = preloadedSettings || (await gSync(["settings"])).settings || {};
+    if ($("sw") && ($("sw").value = void 0 !== e.focusWork ? e.focusWork : 25), $("sb") && ($("sb").value = void 0 !== e.focusBreak ? e.focusBreak : 5), $("sl") && ($("sl").value = void 0 !== e.focusLongBreak ? e.focusLongBreak : 15), $("sc") && ($("sc").value = void 0 !== e.focusCycles ? e.focusCycles : 4), $("thresh-focus") && ($("thresh-focus").value = e.threshFocus || 75), $("thresh-balanced") && ($("thresh-balanced").value = e.threshBalanced || 40), $("thresh-distract") && ($("thresh-distract").value = e.threshDistract || 60), $("tog-badge") && ($("tog-badge").checked = !1 !== e.showBadge), $("idle-timeout-sel") && ($("idle-timeout-sel").value = e.idleTimeout || 30), $("welcome-back-thresh-sel") && ($("welcome-back-thresh-sel").value = e.welcomeBackThresh || 10), $("focus-block-cats")) {
+        $("focus-block-cats").style.display = !1 !== e.blockDuringFocus ? "flex" : "none";
+        let t = e.focusBlockCats || ["distraction"];
+        document.querySelectorAll(".focus-cb-cat").forEach(e => {
+            e.checked = t.includes(e.value)
+        })
+    }
+}
+async function loadAnalytics() {
+    const tabEl = $("atab-" + currentATab);
+    if (tabEl) {
+        if (tabEl.style.opacity !== "0") {
+            tabEl.style.opacity = "0.5";
+        }
+    }
+
+    try {
+        if ("overview" === currentATab) await renderOverview();
+        else if ("daily" === currentATab) await renderDailyBreakdown();
+        else if ("topsites" === currentATab) await renderTopSites();
+        else if ("trend" === currentATab) await renderTrend();
+        else if ("insights" === currentATab) await renderInsights();
+    } finally {
+        if (tabEl) {
+            tabEl.style.transition = "opacity 0.25s ease";
+            tabEl.style.opacity = "1";
+        }
+    }
+}
+
+// FF v4.2: Insights — 365-day GitHub-style consistency heatmap.
+async function renderInsights() {
+    const canvas = $("heatmap-canvas");
+    if (!canvas) return;
+    const loader = $("heatmap-loading");
+    if (loader) loader.style.display = "block";
+    canvas.style.display = "none";
+    // Build 365 day keys (oldest → newest)
+    const keys = [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (let i = 364; i >= 0; i--) {
+        const d = new Date(today); d.setDate(today.getDate() - i);
+        keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+    }
+    const [rangeRes, settingsRes] = await Promise.all([
+        msg("STATS_GET_RANGE", { days: keys }),
+        gSync(["settings"])
+    ]);
+    const data = rangeRes?.data || {};
+    const settings = settingsRes?.settings || {};
+    const goalCats = settings.goalCats || ["productivity", "learning"];
+    const goalSecs = 60 * (settings.streakMinMinutes || 30);
+    const distractThresh = ((settings.threshDistract || 60) / 100);
+
+    // FF v6.18: Start heatmap from first day of data
+    let firstDataIdx = keys.findIndex(k => {
+        const d = data[k] || {};
+        return Object.keys(d).length > 0 && Object.values(d).some(v => v > 0);
+    });
+    if (firstDataIdx === -1) firstDataIdx = keys.length - 1; // At least today
+    keys.splice(0, firstDataIdx);
+
+    // Compute per-day status: 'empty' | 'ok' | 'good' | 'great' | 'best' | 'wasted'
+    const cellStatus = {}, dailyTotals = {};
+    let active = 0, wasted = 0;
+    let maxFocus = 1;
+    keys.forEach(k => {
+        const d = data[k] || {};
+        const focus = goalCats.reduce((s, c) => s + (d[c] || 0), 0);
+        const prod = d.productivity || 0;
+        const learn = d.learning || 0;
+        const distract = d.distraction || 0;
+        const total = focus + distract + (d.communication || 0) + (d.uncategorized || 0);
+        dailyTotals[k] = { focus, prod, learn, distract, total };
+        if (focus > maxFocus) maxFocus = focus;
+    });
+    keys.forEach(k => {
+        const { focus, prod, learn, distract, total } = dailyTotals[k];
+        if (total < 60) { cellStatus[k] = "empty"; return; }
+        // Wasted: high distraction ratio AND below focus goal
+        if (focus < goalSecs && total > 0 && distract / total >= distractThresh) {
+            cellStatus[k] = "wasted"; wasted++; return;
+        }
+        if (focus >= goalSecs) {
+            active++;
+            const r = focus / maxFocus;
+            if (r >= 0.85) cellStatus[k] = "best";
+            else if (r >= 0.6) cellStatus[k] = "great";
+            else if (r >= 0.3) cellStatus[k] = "good";
+            else cellStatus[k] = "ok";
+        } else {
+            cellStatus[k] = "empty";
+        }
+    });
+
+    // Layout: 53 columns × 7 rows, 28px cells with 6px gap, top-left = oldest week
+    const cell = 28, gap = 6, rowH = cell + gap;
+    // Safe split-based date construction to prevent RangeErrors/Invalid Dates on some systems
+    const parts0 = keys[0].split("-");
+    const firstDate = new Date(parseInt(parts0[0], 10), parseInt(parts0[1], 10) - 1, parseInt(parts0[2], 10));
+    // Pad with empty cells before the first date so weekday rows line up (Sunday = row 0)
+    const padStart = firstDate.getDay();
+    const totalCells = padStart + keys.length;
+    const cols = Math.ceil(totalCells / 7);
+    const W = cols * rowH + 60; // +60 for month labels area
+    const H = 7 * rowH + 44;    // +44 for weekday + month labels
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + "px"; canvas.style.height = H + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    const isLight = document.documentElement.classList.contains("light");
+    const COLORS = isLight ? {
+        empty: "rgba(0,0,0,0.05)",
+        ok: "rgba(2,133,78,0.15)",
+        good: "rgba(2,133,78,0.35)",
+        great: "rgba(2,133,78,0.65)",
+        best: "#02854e",
+        wasted: "#d94152"
+    } : {
+        empty: "rgba(255,255,255,0.05)",
+        ok: "rgba(5,213,129,0.30)",
+        good: "rgba(5,213,129,0.55)",
+        great: "rgba(5,213,129,0.80)",
+        best: "#05D581",
+        wasted: "#F46B7A"
+    };
+    const textStyle = isLight ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.45)";
+    const monthTextStyle = isLight ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.55)";
+
+
+    // Month labels along top
+    ctx.font = "10px Inter, system-ui, sans-serif";
+    ctx.fillStyle = textStyle;
+    let lastMonth = -1;
+    let lastMonthX = -Infinity;
+    const MIN_LABEL_GAP = 30; // px — FF v4.9: skip month label if too close to previous
+    const cellRects = []; // for tooltip hit-testing
+    for (let i = 0; i < totalCells; i++) {
+        const col = Math.floor(i / 7), row = i % 7;
+        const x = 56 + col * rowH;
+        const y = 28 + row * rowH;
+        if (i < padStart) continue;
+        const k = keys[i - padStart];
+        const status = cellStatus[k] || "empty";
+        ctx.fillStyle = COLORS[status];
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x, y, cell, cell, 6); else ctx.rect(x, y, cell, cell);
+        ctx.fill();
+        cellRects.push({ x, y, k, status, focus: dailyTotals[k].focus, prod: dailyTotals[k].prod, learn: dailyTotals[k].learn, distract: dailyTotals[k].distract });
+        if (row === 0) {
+            const m = new Date(k + "T00:00:00").getMonth();
+            if (m !== lastMonth && (x - lastMonthX) >= MIN_LABEL_GAP) {
+                ctx.fillStyle = monthTextStyle;
+                ctx.fillText(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m], x, 20);
+                lastMonth = m;
+                lastMonthX = x;
+            } else if (m !== lastMonth) {
+                // Track the month change even if label was skipped, so the next month
+                // gets a chance to render once it's far enough away.
+                lastMonth = m;
+            }
+        }
+    }
+    // Weekday labels
+    ctx.fillStyle = textStyle;
+    ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach((lbl, idx) => {
+        ctx.fillText(lbl, 0, 28 + idx * rowH + 20);
+    });
+
+    // KPI cards (FF v4.4: streak cards replaced by Good Days + Wasted)
+    $("ins-good-days") && ($("ins-good-days").textContent = active);
+    $("ins-wasted-days") && ($("ins-wasted-days").textContent = wasted);
+    // Back-compat in case any orphan IDs still exist in the DOM:
+    $("ins-active-days") && ($("ins-active-days").textContent = active);
+    $("ins-broken-days") && ($("ins-broken-days").textContent = wasted);
+
+    // Weekday vs weekend split + best DOW
+    const dowFocus = [0, 0, 0, 0, 0, 0, 0], dowCount = [0, 0, 0, 0, 0, 0, 0];
+    keys.forEach(k => {
+        const partsK = k.split("-");
+        const dow = new Date(parseInt(partsK[0], 10), parseInt(partsK[1], 10) - 1, parseInt(partsK[2], 10)).getDay();
+        dowFocus[dow] += dailyTotals[k].focus;
+        if (dailyTotals[k].total > 60) dowCount[dow]++;
+    });
+    const wkdSecs = dowFocus.slice(1, 6).reduce((a, b) => a + b, 0);
+    const wknSecs = dowFocus[0] + dowFocus[6];
+    const wkdAvg = wkdSecs / Math.max(1, dowCount.slice(1, 6).reduce((a, b) => a + b, 0));
+    const wknAvg = wknSecs / Math.max(1, dowCount[0] + dowCount[6]);
+    $("ins-wkd-split") && ($("ins-wkd-split").innerHTML =
+        `Weekdays avg: <strong style="color:var(--green)">${fmt(wkdAvg)}</strong>/day<br>Weekends avg: <strong style="color:var(--green)">${fmt(wknAvg)}</strong>/day`);
+    const dowNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    let bestDow = 0, bestAvg = 0;
+    for (let i = 0; i < 7; i++) {
+        const a = dowFocus[i] / Math.max(1, dowCount[i]);
+        if (a > bestAvg) { bestAvg = a; bestDow = i; }
+    }
+    $("ins-best-dow") && ($("ins-best-dow").innerHTML =
+        bestAvg > 0 ? `<strong style="color:var(--green)">${dowNames[bestDow]}</strong> — avg ${fmt(bestAvg)} of focus` : "Not enough data yet");
+
+    // Hide loading state and display canvas (FF v6.18)
+    if (loader) loader.style.display = "none";
+    canvas.style.display = "block";
+
+    // Tooltip: use real invisible DOM cells over the canvas. This avoids fragile
+    // canvas coordinate hit-testing and bypasses the browser's native title popup.
+    const wrap = $("heatmap-wrap") || canvas.parentElement;
+    let tip = $("heatmap-tooltip-live");
+    if (!tip) {
+        tip = document.createElement("div");
+        tip.id = "heatmap-tooltip-live";
+        document.body.appendChild(tip);
+    }
+    tip.style.cssText = [
+        "position:fixed",
+        "display:none",
+        "left:0",
+        "top:0",
+        "background:#161618",
+        "border:1px solid rgba(255,255,255,0.16)",
+        "color:#F4F4F5",
+        "padding:8px 12px",
+        "border-radius:8px",
+        "font:700 12px Manrope, system-ui, sans-serif",
+        "line-height:1.45",
+        "pointer-events:none",
+        "opacity:1",
+        "z-index:2147483647",
+        "box-shadow:0 8px 24px rgba(0,0,0,0.45)",
+        "white-space:nowrap"
+    ].join(";") + ";";
+    const oldTip = $("heatmap-tooltip");
+    if (oldTip) oldTip.style.display = "none";
+    canvas.onmousemove = null;
+    canvas.onmouseleave = null;
+
+    let hoverLayer = $("heatmap-hover-layer");
+    if (!hoverLayer) {
+        hoverLayer = document.createElement("div");
+        hoverLayer.id = "heatmap-hover-layer";
+    }
+    if (wrap && hoverLayer.parentElement !== wrap) wrap.appendChild(hoverLayer);
+    hoverLayer.innerHTML = "";
+    hoverLayer.style.cssText = [
+        "position:absolute",
+        "left:0",
+        "top:0",
+        "width:" + W + "px",
+        "height:" + H + "px",
+        "z-index:5",
+        "pointer-events:auto"
+    ].join(";") + ";";
+    canvas.style.position = "relative";
+    canvas.style.zIndex = "1";
+
+    const hideHeatmapTip = () => { tip.style.display = "none"; };
+    const showHeatmapTip = (ev, hit) => {
+        let dateLabel = hit.k;
+        try {
+            const parts = hit.k.split("-");
+            const dObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            dateLabel = dObj.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        } catch (e) {}
+        tip.innerHTML = `<div style="font-weight:800;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px">${dateLabel}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:4px;color:#05D581"><span>Productivity:</span> <span class="num">${fmt(hit.prod)}</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:4px;color:#A855F7"><span>Learning:</span> <span class="num">${fmt(hit.learn)}</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;color:#F46B7A"><span>Distraction:</span> <span class="num">${fmt(hit.distract)}</span></div>`;
+        tip.style.display = "block";
+        const tipRect = tip.getBoundingClientRect();
+        let tx = ev.clientX + 12;
+        let ty = ev.clientY + 12;
+        if (tx + tipRect.width > window.innerWidth - 8) tx = ev.clientX - tipRect.width - 12;
+        if (ty + tipRect.height > window.innerHeight - 8) ty = ev.clientY - tipRect.height - 12;
+        tip.style.left = Math.max(8, tx) + "px";
+        tip.style.top = Math.max(8, ty) + "px";
+    };
+
+    cellRects.forEach(hit => {
+        const cellTarget = document.createElement("div");
+        cellTarget._heatmapHit = hit;
+        cellTarget.style.cssText = [
+            "position:absolute",
+            "left:" + hit.x + "px",
+            "top:" + hit.y + "px",
+            "width:" + cell + "px",
+            "height:" + cell + "px",
+            "border-radius:6px",
+            "background:rgba(255,255,255,0)",
+            "cursor:crosshair"
+        ].join(";") + ";";
+        cellTarget.addEventListener("mouseenter", ev => showHeatmapTip(ev, hit));
+        cellTarget.addEventListener("mousemove", ev => showHeatmapTip(ev, hit));
+        cellTarget.addEventListener("mouseleave", hideHeatmapTip);
+        hoverLayer.appendChild(cellTarget);
+    });
+    hoverLayer.addEventListener("mouseleave", hideHeatmapTip);
+    const legend = $("heatmap-legend");
+    if (legend && !legend.dataset.wired) {
+        legend.dataset.wired = "1";
+        legend.addEventListener("click", () => {
+            const overlay = document.createElement("div");
+            overlay.className = "overlay";
+            overlay.style.zIndex = "9999";
+            overlay.innerHTML = `
+              <div class="card" style="width:100%;max-width:400px;padding:32px;">
+                <div style="font-size:20px;font-weight:800;margin-bottom:24px;">⚙️ Heatmap Thresholds</div>
+                <div style="margin-bottom:16px;">
+                  <label class="slbl" style="display:block;margin-bottom:6px;">Minimum Focus Time (minutes)</label>
+                  <input type="number" id="hm-min-focus" class="inp" value="${settings.streakMinMinutes || 30}" style="width:100%"/>
+                  <div style="font-size:12px;color:var(--tx3);margin-top:4px;">Minimum time to count as an active day.</div>
+                </div>
+                <div style="margin-bottom:24px;">
+                  <label class="slbl" style="display:block;margin-bottom:6px;">Wasted Day Distraction (%)</label>
+                  <input type="number" id="hm-dist-thresh" class="inp" value="${settings.threshDistract || 60}" style="width:100%"/>
+                  <div style="font-size:12px;color:var(--tx3);margin-top:4px;">If distraction is above this % and focus is low, the day is Wasted.</div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:12px;">
+                  <button class="bs" id="hm-cancel">Cancel</button>
+                  <button class="bp" id="hm-save">Save Settings</button>
+                </div>
+              </div>
+            `;
+            document.body.appendChild(overlay);
+            document.getElementById("hm-cancel").onclick = () => overlay.remove();
+            document.getElementById("hm-save").onclick = async () => {
+                const sv = (await gSync(["settings"])).settings || {};
+                sv.streakMinMinutes = parseInt(document.getElementById("hm-min-focus").value) || 30;
+                sv.threshDistract = parseInt(document.getElementById("hm-dist-thresh").value) || 60;
+                await sSync({ settings: sv });
+                if ($("thresh-distract")) $("thresh-distract").value = sv.threshDistract;
+                if ($("streak-min-input")) $("streak-min-input").value = sv.streakMinMinutes;
+                overlay.remove();
+                renderInsights();
+                if (typeof toast === "function") toast("Thresholds updated", "ok");
+            };
+        });
+    }
+}
+
+function getDays(e) {
+    // Bug #1 fix: use const/let throughout to prevent var-hoisting shadowing between branches.
+    // FF v4.4: supports number-of-days OR { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }.
+    if (e && typeof e === "object" && e.from && e.to) {
+        const t = [], a = [];
+        const start = new Date(e.from + "T00:00:00");
+        const end = new Date(e.to + "T00:00:00");
+        if (isNaN(start) || isNaN(end) || end < start) return { days: [], labels: [] };
+        const maxDays = 365;
+        let cursor = new Date(start);
+        while (cursor <= end && t.length < maxDays) {
+            const s = cursor.getFullYear(),
+                o = String(cursor.getMonth() + 1).padStart(2, "0"),
+                r = String(cursor.getDate()).padStart(2, "0");
+            t.push(`${s}-${o}-${r}`);
+            a.push(cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return { days: t, labels: a };
+    }
+    const t = [], a = [];
+    for (let n = (parseInt(e) || 7) - 1; n >= 0; n--) {
+        const i = new Date;
+        i.setDate(i.getDate() - n);
+        const s = i.getFullYear(),
+            o = String(i.getMonth() + 1).padStart(2, "0"),
+            r = String(i.getDate()).padStart(2, "0");
+        t.push(`${s}-${o}-${r}`);
+        a.push(i.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+    }
+    return { days: t, labels: a };
+}
+document.querySelectorAll(".ni").forEach(e => {
+    e.addEventListener("click", async () => {
+        var t = e.getAttribute("data-tab");
+        document.querySelectorAll(".ni").forEach(e => e.classList.remove("act")), document.querySelectorAll(".tab").forEach(e => e.classList.remove("act")), e.classList.add("act"), $("tab-" + t).classList.add("act"), "analytics" === t && loadAnalytics(), "settings" === t && loadExtendedSettings(), "focus" === t && (loadFocusUI(), loadWeeklyGoalSettings(), loadFocusHistory()), "sitemanager" === t && (async () => { await Promise.all([loadRules(), loadCategories(), loadVisitedSites(), loadExtendedSettings()]); renderCategories(); renderGranularBlocksUI(); })()
+    })
+}),
+    // FF v6.8: Settings sub-tab switching
+    document.querySelectorAll("[data-settab]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll("[data-settab]").forEach(b => b.classList.remove("act"));
+            btn.classList.add("act");
+            const tab = btn.getAttribute("data-settab");
+            const trackingPane = $("settab-tracking");
+            const securityPane = $("settab-security");
+            if (trackingPane) trackingPane.style.display = tab === "tracking" ? "" : "none";
+            if (securityPane) securityPane.style.display = tab === "security" ? "" : "none";
+        });
+    }), $("btn-bulk-edit") && $("btn-bulk-edit").addEventListener("click", async () => {
+        await promptPinIfEnabled("lockRules") && (isBulkMode = !0, bulkSelected.clear(), $("btn-bulk-edit").style.display = "none", $("bulk-actions").style.display = "flex", renderCombined())
+    }), $("btn-bulk-cancel") && $("btn-bulk-cancel").addEventListener("click", () => {
+        isBulkMode = !1, bulkSelected.clear(), $("btn-bulk-edit").style.display = "", $("bulk-actions").style.display = "none", renderCombined()
+    }), $("btn-bulk-delete") && $("btn-bulk-delete").addEventListener("click", async () => {
+        if (0 === bulkSelected.size) return void toast("No items selected", "er");
+        if (!confirm(`Delete ${bulkSelected.size} rules?`)) return;
+        let e = await gLocal(["blockRules", "allowList"]);
+        rules = e.blockRules || [], allowList = e.allowList || [], rules = rules.filter(e => !bulkSelected.has(e.id)), allowList = allowList.filter(e => !bulkSelected.has(e)), await saveRulesAndSync(rules), await sLocal({
+            allowList: allowList
+        }), await msg("TRIGGER_DNR_UPDATE"), isBulkMode = !1, bulkSelected.clear(), $("btn-bulk-edit").style.display = "", $("bulk-actions").style.display = "none", renderCombined(), toast("Rules deleted", "ok")
+    }), $("btn-add-block") && $("btn-add-block").addEventListener("click", async function () {
+        if (!await promptPinIfEnabled("lockRules")) return;
+        var e = $("cat-inp").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+        if (!e) return toast("Enter a domain", "er");
+
+        var t = $("block-cat").value;
+        var a = $("cat-redir").value.trim();
+        await tagSite(e, t);
+
+        var n = await gLocal(["blockRules"]);
+        rules = n.blockRules || [];
+
+        var mId = $("m-id").value;
+        var aIdx = rules.findIndex(r => r.id === mId || r.domain === e);
+
+        var ruleObj;
+        if (aIdx !== -1) {
+            ruleObj = rules[aIdx];
+            ruleObj.domain = e;
+            ruleObj.category = t;
+        } else {
+            ruleObj = {
+                id: uid(),
+                domain: e,
+                category: t
+            };
+            rules.push(ruleObj);
+        }
+
+        ruleObj.timeLimitEnabled = $("m-mode-limit").checked;
+        ruleObj.dailyLimitSecs = ruleObj.timeLimitEnabled ? 60 * parseInt($("m-lim").value, 10) : 0;
+
+        ruleObj.instantBlock = ruleObj.timeLimitEnabled && ruleObj.dailyLimitSecs === 0;
+        if (ruleObj.instantBlock) {
+            ruleObj.timeLimitEnabled = false; // Background script uses instantBlock
+        }
+
+        ruleObj.focusOnly = $("m-mode-focus").checked;
+        ruleObj.scheduleEnabled = $("m-mode-schedule").checked;
+        ruleObj.cooldownEnabled = $("m-mode-cooldown").checked;
+        ruleObj.redirectUrl = a || null;
+        ruleObj.scheduleEnabled ? ruleObj.schedules = getSlots() : ruleObj.schedules = [];
+
+        ruleObj.cooldownTimer = ruleObj.cooldownEnabled ? parseInt($("m-cd-wait").value, 10) : 10;
+        ruleObj.cooldownFrequency = ruleObj.cooldownEnabled ? $("m-cd-freq").value : "always";
+
+        const _checkedDays = Array.from(document.querySelectorAll('.m-day-cb')).filter(cb => cb.checked).map(cb => parseInt(cb.value));
+        ruleObj.activeDays = _checkedDays.length === 7 ? null : _checkedDays;
+
+        await saveRulesAndSync(rules);
+
+        await msg("TRIGGER_DNR_UPDATE");
+        $("cat-inp").value = ""; $("cat-redir").value = ""; $("m-id").value = "";
+        if ($("add-rule-modal")) $("add-rule-modal").classList.add("hide");
+        renderCombined();
+    }), $("btn-add-tag-inline") && $("btn-add-tag-inline").addEventListener("click", async function () {
+        var e = $("mon-inp-domain").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+        if (e) {
+            var t = $("mon-cat").value;
+            await tagSite(e, t);
+            $("mon-inp-domain").value = "";
+            $("mon-inp-domain").blur();
+            $("add-rule-modal") && $("add-rule-modal").classList.add("hide");
+            toast(e + " tagged successfully", "ok");
+            if (typeof renderTopSites === "function") renderTopSites();
+            if (typeof loadAnalytics === "function") loadAnalytics();
+        } else toast("Enter a domain", "er")
+    }), $("cat-inp") && $("cat-inp").addEventListener("keydown", e => {
+        // FF v4.9 — "Just Tag" removed from Rule Manager. Enter now triggers Block.
+        if ("Enter" === e.key) {
+            const target = $("btn-add-block") || $("btn-add-cat");
+            if (target) target.click();
+        }
+    }), $("add-sched-slot") && $("add-sched-slot").addEventListener("click", () => {
+        var e = getSlots();
+        e.push({
+            start: "09:00",
+            end: "17:00"
+        }), renderScheduleSlots(e)
+    }), ["m-mode-focus", "m-mode-limit", "m-mode-schedule", "m-mode-cooldown"].forEach(e => {
+        $(e)?.addEventListener("change", () => {
+            $("mf-tl").style.display = $("m-mode-limit").checked ? "block" : "none";
+            $("mf-sc").style.display = $("m-mode-schedule").checked ? "block" : "none";
+            $("mf-cd").style.display = $("m-mode-cooldown").checked ? "block" : "none";
+        })
+    }), $("btn-add-cat") && $("btn-add-cat").addEventListener("click", async () => {
+        var e = $("cat-inp").value.trim().toLowerCase().split("/")[0];
+        if (e) {
+            var t = $("block-cat").value;
+            await tagSite(e, t), $("cat-inp").value = "", $("cat-inp").blur(), toast(e + " tagged as " + CAT_META[t].label, "ok")
+        }
+    }), $("btn-fs") && $("btn-fs").addEventListener("click", async () => {
+        if ($("btn-fs").disabled) return; $("btn-fs").disabled = true;
+        try { renderFocus((await msg("FOCUS_START"))?.focusState, await getActiveWorkMins()); }
+        finally { $("btn-fs").disabled = false; }
+    }),
+    // FF v6.7: + Add Schedule shortcut below the timer
+    $("btn-add-sched-shortcut") && $("btn-add-sched-shortcut").addEventListener("click", async () => {
+        if (!(await promptPinIfEnabled("lockFocusScheds"))) return;
+        // FF v6.8: 3-schedule cap
+        const _sv = (await gSync(["settings"])).settings || {};
+        if ((_sv.focusSchedules || []).length >= 3) { toast("You can only have 3 focus schedules.", "er"); return; }
+        if (typeof openScheduleModal === "function") openScheduleModal(_sv.focusSchedules || []);
+        else if (typeof initFocusSchedules !== "undefined") {
+            const _addBtn = document.querySelector("#btn-add-schedule");
+            if (_addBtn) _addBtn.click();
+        }
+    }), $("btn-fst") && $("btn-fst").addEventListener("click", async () => {
+        if ($("btn-fst").disabled) return; $("btn-fst").disabled = true;
+        try {
+            if (await promptPinIfEnabled("lockStop")) {
+                renderFocus((await msg("FOCUS_STOP"))?.focusState, await getActiveWorkMins()), loadFocusHistory()
+            }
+        } finally { $("btn-fst").disabled = false; }
+    }), $("btn-fp") && $("btn-fp").addEventListener("click", async () => {
+        if ($("btn-fp").disabled) return; $("btn-fp").disabled = true;
+        try {
+            var e = $("btn-fp").textContent.includes("Resume") || $("btn-fp").textContent.includes("Start");
+            renderFocus((await msg(e ? "FOCUS_RESUME" : "FOCUS_PAUSE"))?.focusState, await getActiveWorkMins())
+        } finally { $("btn-fp").disabled = false; }
+    }), $("btn-skip") && $("btn-skip").addEventListener("click", async () => {
+        if ($("btn-skip").disabled) return; $("btn-skip").disabled = true;
+        try { renderFocus((await msg("FOCUS_SKIP"))?.focusState, await getActiveWorkMins()); }
+        finally { $("btn-skip").disabled = false; }
+    }), $("btn-save-focus") && $("btn-save-focus").addEventListener("click", async () => {
+        var e = (await gSync(["settings"])).settings || {};
+        e.focusWork = parseInt($("sw").value, 10), isNaN(e.focusWork) && (e.focusWork = 25), e.focusBreak = parseInt($("sb").value, 10), isNaN(e.focusBreak) && (e.focusBreak = 5), e.focusLongBreak = parseInt($("sl").value, 10), isNaN(e.focusLongBreak) && (e.focusLongBreak = 15), e.focusCycles = parseInt($("sc").value, 10), isNaN(e.focusCycles) && (e.focusCycles = 4);
+        let t = [];
+        document.querySelectorAll(".focus-cb-cat:checked").forEach(e => t.push(e.value)), e.focusBlockCats = t.length ? t : ["distraction"], await sSync({
+            settings: e
+        }), toast("Timer settings saved", "ok"), loadFocusUI(), msg("TRIGGER_DNR_UPDATE")
+    }), $("btn-save-goals") && $("btn-save-goals").addEventListener("click", async () => {
+        var e = (await gSync(["settings"])).settings || {};
+        e.weeklyGoalHours = parseInt($("weekly-goal-input").value) || 0, e.streakMinMinutes = parseInt($("streak-min-input").value) || 30;
+        let t = [];
+        document.querySelectorAll(".goal-cb-cat:checked").forEach(e => t.push(e.value)), e.goalCats = t.length ? t : ["productivity", "learning"], await sSync({
+            settings: e
+        }), toast("Study goals saved", "ok"), loadWeeklyGoalSettings(), loadAnalytics()
+    }), document.querySelectorAll("[data-atab]").forEach(e => {
+        e.addEventListener("click", () => {
+            document.querySelectorAll("[data-atab]").forEach(e => e.classList.remove("act")), e.classList.add("act"), currentATab = e.getAttribute("data-atab"), ["overview", "daily", "topsites", "trend", "insights"].forEach(e => {
+                const tab = $("atab-" + e);
+                if (tab) {
+                    if (e === currentATab) {
+                        tab.style.display = "";
+                        tab.style.opacity = "0";
+                        tab.style.transition = "none";
+                    } else {
+                        tab.style.display = "none";
+                    }
+                }
+            }), setTimeout(() => loadAnalytics(), 100)
+        })
+    }), document.querySelectorAll("[data-range]").forEach(e => {
+        e.addEventListener("click", () => {
+            document.querySelectorAll("[data-range]").forEach(b => b.classList.remove("act"));
+            e.classList.add("act");
+            var v = e.getAttribute("data-range");
+            var panel = $("ov-custom-panel");
+            if (v === "custom") {
+                if (panel) panel.style.display = "flex";
+                if ($("ov-from") && !$("ov-from").value) {
+                    var f = new Date(); f.setDate(f.getDate() - 30);
+                    var t2 = new Date();
+                    $("ov-from").value = f.toISOString().slice(0, 10);
+                    $("ov-to").value = t2.toISOString().slice(0, 10);
+                }
+                return;
+            }
+            if (panel) panel.style.display = "none";
+            analyticsRange = parseInt(v) || 7;
+            overviewCustomFrom = null; overviewCustomTo = null;
+            $("ov-range-lbl") && ($("ov-range-lbl").textContent = "Last " + analyticsRange + " days");
+            renderOverview();
+        })
+    }), document.querySelectorAll("[data-siterange]").forEach(e => {
+        e.addEventListener("click", () => {
+            document.querySelectorAll("[data-siterange]").forEach(e => e.classList.remove("act")), e.classList.add("act"), siteRange = e.getAttribute("data-siterange"), renderTopSites()
+        })
+    }), document.querySelectorAll("[data-trendrange]").forEach(e => {
+        e.addEventListener("click", () => {
+            document.querySelectorAll("[data-trendrange]").forEach(b => b.classList.remove("act"));
+            e.classList.add("act");
+            var v = e.getAttribute("data-trendrange");
+            var panel = $("trend-custom-panel");
+            if (v === "custom") {
+                if (panel) panel.style.display = "flex";
+                if ($("trend-from") && !$("trend-from").value) {
+                    var f = new Date(); f.setDate(f.getDate() - 30);
+                    var t2 = new Date();
+                    $("trend-from").value = f.toISOString().slice(0, 10);
+                    $("trend-to").value = t2.toISOString().slice(0, 10);
+                }
+                return;
+            }
+            if (panel) panel.style.display = "none";
+            trendRange = parseInt(v) || 7;
+            trendCustomFrom = null; trendCustomTo = null;
+            renderTrend();
+        })
+    });
+// FF v4.2: Daily Breakdown range selector
+document.querySelectorAll("[data-dailyrange]").forEach(e => {
+    e.addEventListener("click", () => {
+        document.querySelectorAll("[data-dailyrange]").forEach(b => b.classList.remove("act"));
+        e.classList.add("act");
+        const v = e.getAttribute("data-dailyrange");
+        const panel = $("db-custom-panel");
+        if (v === "custom") {
+            if (panel) panel.style.display = "flex";
+            // Pre-fill with last 30 days if empty
+            if ($("db-from") && !$("db-from").value) {
+                const f = new Date(); f.setDate(f.getDate() - 30);
+                const t2 = new Date();
+                $("db-from").value = f.toISOString().slice(0, 10);
+                $("db-to").value = t2.toISOString().slice(0, 10);
+            }
+            return; // wait for Apply
+        }
+        if (panel) panel.style.display = "none";
+        dailyRange = parseInt(v) || 7;
+        renderDailyBreakdown();
+    });
+});
+const dbApplyBtn = $("db-apply");
+if (dbApplyBtn) {
+    dbApplyBtn.addEventListener("click", () => {
+        const f = $("db-from")?.value, tt = $("db-to")?.value;
+        if (!f || !tt) { toast && toast("Pick both dates", "err"); return; }
+        dailyRange = "custom"; dailyCustomFrom = f; dailyCustomTo = tt;
+        renderDailyBreakdown();
+    });
+}
+// FF v4.4: Custom range Apply for Overview + Comparison
+const ovApplyBtn = $("ov-apply");
+if (ovApplyBtn) {
+    ovApplyBtn.addEventListener("click", () => {
+        const f = $("ov-from")?.value, tt = $("ov-to")?.value;
+        if (!f || !tt) { toast && toast("Pick both dates", "err"); return; }
+        if (new Date(tt) < new Date(f)) { toast && toast("End date is before start", "err"); return; }
+        overviewCustomFrom = f; overviewCustomTo = tt;
+        $("ov-range-lbl") && ($("ov-range-lbl").textContent = f + " → " + tt);
+        renderOverview();
+    });
+}
+const trendApplyBtn = $("trend-apply");
+if (trendApplyBtn) {
+    trendApplyBtn.addEventListener("click", () => {
+        const f = $("trend-from")?.value, tt = $("trend-to")?.value;
+        if (!f || !tt) { toast && toast("Pick both dates", "err"); return; }
+        if (new Date(tt) < new Date(f)) { toast && toast("End date is before start", "err"); return; }
+        trendCustomFrom = f; trendCustomTo = tt;
+        renderTrend();
+    });
+}
+let tooltipHitboxes = [],
+    tooltipEl = null;
+
+function hideTooltip() {
+    tooltipEl && (tooltipEl.style.display = "none")
+}
+
+function showTooltip(e, t, a) {
+    tooltipEl || (tooltipEl = document.createElement("div"), tooltipEl.className = "chart-tooltip", document.body.appendChild(tooltipEl));
+    tooltipEl.style.cssText = [
+        "position:fixed",
+        "display:block",
+        "left:0",
+        "top:0",
+        "background:#161618",
+        "border:1px solid rgba(255,255,255,0.16)",
+        "color:#F4F4F5",
+        "padding:8px 12px",
+        "border-radius:8px",
+        "font:700 12px Manrope, system-ui, sans-serif",
+        "line-height:1.45",
+        "pointer-events:none",
+        "opacity:1",
+        "z-index:2147483647",
+        "box-shadow:0 8px 24px rgba(0,0,0,0.45)",
+        "white-space:nowrap"
+    ].join(";") + ";";
+    tooltipEl.innerHTML = a;
+    tooltipEl.style.left = (e + 15) + "px";
+    tooltipEl.style.top = (t - 15) + "px";
+    const _ttR = tooltipEl.getBoundingClientRect();
+    if (_ttR.right > window.innerWidth - 8) tooltipEl.style.left = (e - _ttR.width - 15) + "px";
+    if (_ttR.bottom > window.innerHeight - 8) tooltipEl.style.top = (t - _ttR.height) + "px";
+}
+
+function initCanvasHover(e) {
+    const t = $(e);
+    t && !t._hoverBound && (t._hoverBound = !0, t.addEventListener("mousemove", e => {
+        const a = t.getBoundingClientRect(),
+            n = e.clientX - a.left,
+            i = e.clientY - a.top;
+        let s = null;
+        for (let e = 0; e < tooltipHitboxes.length; e++) {
+            let t = tooltipHitboxes[e];
+            if (n >= t.x && n <= t.x + t.w && i >= t.y && i <= t.y + t.h) {
+                s = t;
+                break
+            }
+        }
+        s ? (t.style.cursor = "crosshair", showTooltip(e.clientX, e.clientY, s.text)) : (t.style.cursor = "default", hideTooltip())
+    }), t.addEventListener("mouseleave", () => {
+        hideTooltip(), t.style.cursor = "default"
+    }))
+}
+
+function drawBarChart(e, t, a, n, i, s, o, r) {
+    // Bug #4 fix: cancel any in-flight rAF loop before starting a new one
+    if (_barChartRaf !== null) { cancelAnimationFrame(_barChartRaf); _barChartRaf = null; }
+    var l = document.getElementById(a),
+        c = document.getElementById(e),
+        d = document.getElementById(t);
+    if (!c || !l || !d) return;
+    d.parentElement && (d.parentElement.style.display = "flex", d.parentElement.style.flexDirection = "row-reverse"), tooltipHitboxes = [], initCanvasHover(e);
+    var u = l.parentElement.clientWidth || 800;
+    u -= 50;
+    var p = Math.max(u, 80 * n.length),
+        g = 340,
+        m = window.devicePixelRatio || 1;
+    c.width = p * m, c.height = g * m, c.style.width = p + "px", c.style.height = g + "px";
+    var v = c.getContext("2d");
+    v.scale(m, m);
+    const h = document.documentElement.classList.contains("light"),
+        f = h ? "#e2e8f0" : "rgba(255,255,255,.08)";
+    for (var y = p, b = n.length, $ = 1, k = 0; k < b; k++) {
+        var x = allCats().reduce((e, t) => e + Math.max(0, Math.round((s[i[k]] && s[i[k]][t] || 0) / 60)), 0);
+        x > $ && !isNaN(x) && ($ = x)
+    }
+    d.innerHTML = "", d.style.position = "relative", d.style.minWidth = "45px", d.style.height = g + "px";
+    for (var w = 4; w >= 0; w--) {
+        var E = $ * w / 4,
+            S = $ > 90 ? Math.round(E / 6) / 10 + "h" : Math.round(E) + "m",
+            L = document.createElement("div");
+        L.textContent = S, L.style.cssText = "position:absolute; right:8px; top:" + (20 + 280 * (1 - w / 4) - 7) + "px; color:var(--tx); font-weight:800; font-size:12px; background:transparent; padding:0; border:none; box-shadow:none; line-height:1; font-family:monospace;", d.appendChild(L)
+    }
+    var T = o.length ? o : ["uncategorized"],
+        C = y / b,
+        A = Math.max(6, Math.min(24, Math.floor(.8 * C / Math.max(1, T.length)))),
+        M = A * T.length;
+    let R = null;
+    _barChartRaf = requestAnimationFrame(function e(t) {
+        R || (R = t);
+        const a = Math.min(1, (t - R) / 500),
+            o = easeOutQuart(a);
+        v.clearRect(0, 0, p, g);
+        for (var l = 0; l <= 4; l++) {
+            var c = 20 + 280 * (1 - l / 4);
+            v.strokeStyle = f, v.beginPath(), v.moveTo(0, c), v.lineTo(p, c), v.stroke()
+        }
+        for (var d = 0; d < b; d++) {
+            const e = i[d];
+            T.forEach((t, n) => {
+                var i = Math.round((s[e] && s[e][t] || 0) / 60);
+                if (!(i <= 0 || isNaN(i))) {
+                    var l = d * C + C / 2 - M / 2 + n * A,
+                        c = catColor(t),
+                        u = i / $ * 280,
+                        p = Math.max(3, u) * o;
+                    if (v.fillStyle = c, v.beginPath(), v.roundRect ? v.roundRect(l, 300 - p, A - 1, p, [4, 4, 0, 0]) : v.rect(l, 300 - p, A - 1, p), v.fill(), 1 === a) {
+                        let a = r[e] || {},
+                            n = [];
+                        Object.entries(a).forEach(([e, a]) => {
+                            getEffectiveCat(e).cat === t && a > 0 && n.push({
+                                domain: e,
+                                mins: Math.round(a / 60)
+                            })
+                        }), n.sort((e, t) => t.mins - e.mins);
+                        let s = n.slice(0, 5),
+                            o = `<div style="font-weight:800;margin-bottom:6px;border-bottom:1px solid var(--bd2);padding-bottom:6px;color:${c}">${CAT_META[t].label} · ${fmt(60 * i)}</div>`;
+                        0 === s.length && (o += '<div style="font-size:12px;color:var(--tx2)">No specific sites tracked.</div>'), s.forEach(e => {
+                            o += `<div style="display:flex;justify-content:space-between;gap:16px;font-size:12px;margin-bottom:4px"><span>${e.domain}</span><span class="num" style="color:var(--tx2);font-weight:700">${fmt(60 * e.mins)}</span></div>`
+                        }), tooltipHitboxes.push({
+                            x: l,
+                            y: 300 - p,
+                            w: A - 1,
+                            h: p,
+                            text: o
+                        })
+                    }
+                }
+            }), v.save(), v.translate(d * C + C / 2, 312), v.fillStyle = h ? "#0f172a" : "#ffffff", v.font = "800 12px system-ui", v.textAlign = "center", v.textBaseline = "top", v.fillText(n[d], 0, 0), v.restore()
+        }
+        if (a < 1) { _barChartRaf = requestAnimationFrame(e); } else { _barChartRaf = null; }
+    }), setTimeout(() => l.scrollLeft = l.scrollWidth, 10)
+}
+
+function drawTrendChart(e, t, a, n, i, s, o, r, l) {
+    // Bug #4 fix: cancel any in-flight rAF loop before starting a new one
+    if (_trendChartRaf !== null) { cancelAnimationFrame(_trendChartRaf); _trendChartRaf = null; }
+    var c = document.getElementById(a),
+        d = document.getElementById(e),
+        u = document.getElementById(t);
+    if (!d || !c || !u) return;
+    u.parentElement && (u.parentElement.style.display = "flex", u.parentElement.style.flexDirection = "row-reverse"), tooltipHitboxes = [], initCanvasHover(e);
+    var p = c.parentElement.clientWidth || 800;
+    p -= 50;
+    var g = Math.max(p, 80 * n.length),
+        m = 340,
+        v = window.devicePixelRatio || 1;
+    d.width = g * v, d.height = m * v, d.style.width = g + "px", d.style.height = m + "px";
+    var h = d.getContext("2d");
+    h.scale(v, v);
+    const f = document.documentElement.classList.contains("light"),
+        y = f ? "#e2e8f0" : "rgba(255,255,255,.08)";
+    var b = 20,
+        $ = 280,
+        k = g,
+        x = n.length,
+        w = [];
+    i && w.push(...i), s && w.push(...s), o && w.push(...o), r && w.push(...r), l && w.push(...l);
+    var E = Math.max(1, ...w.map(e => isNaN(e) ? 0 : e));
+    u.innerHTML = "", u.style.position = "relative", u.style.minWidth = "45px", u.style.height = m + "px";
+    for (var S = 4; S >= 0; S--) {
+        var L = E * S / 4,
+            T = E > 90 ? Math.round(L / 6) / 10 + "h" : Math.round(L) + "m",
+            C = document.createElement("div");
+        C.textContent = T, C.style.cssText = "position:absolute; right:8px; top:" + (b + $ * (1 - S / 4) - 7) + "px; color:var(--tx); font-weight:800; font-size:12px; background:transparent; padding:0; border:none; box-shadow:none; line-height:1; font-family:monospace;", u.appendChild(C)
+    }
+    var A = k / Math.max(1, x),
+        M = A / 2;
+    let R = null;
+    requestAnimationFrame(function e(t) {
+        R || (R = t);
+        const a = Math.min(1, (t - R) / 500),
+            c = easeOutQuart(a);
+        h.clearRect(0, 0, g, m);
+        for (var d = 0; d <= 4; d++) {
+            var u = b + $ * (1 - d / 4);
+            h.strokeStyle = y, h.beginPath(), h.moveTo(0, u), h.lineTo(g, u), h.stroke()
+        }
+
+        function p(e, t, a) {
+            if (e && e.length) {
+                h.beginPath(), h.moveTo(M, 300 - (e[0] || 0) / E * $ * c);
+                for (var n = 0; n < x - 1; n++) {
+                    var i = M + n * A,
+                        s = 300 - (e[n] || 0) / E * $ * c,
+                        o = M + (n + 1) * A,
+                        r = 300 - (e[n + 1] || 0) / E * $ * c,
+                        l = (i + o) / 2;
+                    h.quadraticCurveTo(i + (l - i) / 2, s, l, (s + r) / 2), h.quadraticCurveTo(o - (o - l) / 2, r, o, r)
+                }
+                h.strokeStyle = t, h.lineWidth = 3, h.stroke(), h.lineTo(M + (x - 1) * A, 300), h.lineTo(M, 300), h.closePath();
+                var d = h.createLinearGradient(0, b, 0, 300);
+                d.addColorStop(0, a), d.addColorStop(1, "rgba(0,0,0,0)"), h.fillStyle = d, h.fill()
+            }
+        }
+        r && p(r, "#F46B7A", "rgba(244,107,122,0.15)"), o && p(o, "#5C9CFC", "rgba(92,156,252,0.15)"), s && p(s, "#a855f7", "rgba(168,85,247,0.15)"), i && p(i, "#05D581", "rgba(5,213,129,0.15)"), l && p(l, "#94a3b8", "rgba(148,163,184,0.15)");
+        for (var v = 0; v < x; v++) {
+            var k = M + v * A,
+                w = `<div style="font-weight:800;margin-bottom:6px;border-bottom:1px solid var(--bd2);padding-bottom:6px">${n[v]}</div>`,
+                S = !1;
+            i && i[v] > 0 && (w += `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="color:var(--green)">●</span> Productivity:</div> <span class="num">${fmt(60 * i[v])}</span></div>`, S = !0), s && s[v] > 0 && (w += `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="color:var(--purple)">●</span> Learning:</div> <span class="num">${fmt(60 * s[v])}</span></div>`, S = !0), r && r[v] > 0 && (w += `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="color:var(--red)">●</span> Distraction:</div> <span class="num">${fmt(60 * r[v])}</span></div>`, S = !0), o && o[v] > 0 && (w += `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="color:var(--blue)">●</span> Communication:</div> <span class="num">${fmt(60 * o[v])}</span></div>`, S = !0), l && l[v] > 0 && (w += `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="color:var(--tx4)">●</span> Uncategorized:</div> <span class="num">${fmt(60 * l[v])}</span></div>`, S = !0), 1 === a && S && tooltipHitboxes.push({
+                x: k - A / 2,
+                y: 0,
+                w: A,
+                h: m,
+                text: w
+            }), h.save(), h.translate(M + v * A, 312), h.fillStyle = f ? "#0f172a" : "#ffffff", h.font = "800 12px system-ui", h.textAlign = "center", h.textBaseline = "top", h.fillText(n[v], 0, 0), h.restore()
+        }
+        if (a < 1) { _trendChartRaf = requestAnimationFrame(e); } else { _trendChartRaf = null; }
+    }), setTimeout(() => c.scrollLeft = c.scrollWidth, 10)
+}
+async function renderOverview() {
+    var {
+        days: e,
+        labels: t
+    } = getDays(overviewCustomFrom && overviewCustomTo ? { from: overviewCustomFrom, to: overviewCustomTo } : analyticsRange), a = await msg("STATS_GET_RANGE", {
+        days: e
+    }), n = a?.data || {}, i = {
+        sites: {}
+    }, s = {};
+    e.forEach(e => {
+        var t = n[e] || {};
+        s[e] = t.sites || {}, Object.keys(t).forEach(e => {
+            "sites" === e ? Object.entries(t.sites || {}).forEach(([e, t]) => i.sites[e] = (i.sites[e] || 0) + t) : "number" == typeof t[e] && (i[e] = (i[e] || 0) + t[e])
+        })
+    }), $("an-total") && ($("an-total").textContent = fmt(allCats().reduce((e, t) => e + (i[t] || 0), 0))), $("an-st") && ($("an-st").textContent = fmt(i.productivity || 0)), $("an-lrn") && ($("an-lrn").textContent = fmt(i.learning || 0)), $("an-prod") && ($("an-prod").textContent = fmt(i.communication || 0)), $("an-dt") && ($("an-dt").textContent = fmt(i.distraction || 0));
+    var o = (await msg("STATS_GET_ALL"))?.daily || {},
+        r = 0,
+        l = 0;
+    Object.keys(o).forEach(e => {
+        var t = Object.keys(o[e]).filter(t => "sites" !== t && "number" == typeof o[e][t]).reduce((t, a) => t + (o[e][a] || 0), 0);
+        t > 0 && (r += t, l++)
+    }), $("at-total") && ($("at-total").textContent = fmt(r)), $("at-daily-avg") && ($("at-daily-avg").textContent = fmt(l > 0 ? Math.round(r / l) : 0)), $("at-days") && ($("at-days").textContent = l);
+    var c = await msg("STATS_GET_STREAK"),
+        d = c && c.streak || {};
+    $("an-bs") && ($("an-bs").textContent = (d.bestStreak || 0) + "d"), $("an-bd") && ($("an-bd").textContent = d.bestDay ? new Date(d.bestDay + "T00:00:00").toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric"
+    }) : "—");
+    let u = [];
+    $("tog-ov-prod")?.checked && u.push("productivity"), $("tog-ov-lrn")?.checked && u.push("learning"), $("tog-ov-dist")?.checked && u.push("distraction"), $("tog-ov-comm")?.checked && u.push("communication"), $("tog-ov-unc")?.checked && u.push("uncategorized"), $("ov-chart") && drawBarChart("ov-chart", "ov-y-axis", "ov-scroll", t, e, n, u, s)
+}
+async function renderDailyBreakdown() {
+    // FF v4.2: was loading the entire history (STATS_GET_ALL) and slicing 45 days — laggy.
+    // Now request only the days we need via STATS_GET_RANGE.
+    var t = $("daily-breakdown-list");
+    if (!t) return;
+    var rangeKeys = [];
+    if (dailyRange === "custom" && dailyCustomFrom && dailyCustomTo) {
+        const from = new Date(dailyCustomFrom + "T00:00:00");
+        const to = new Date(dailyCustomTo + "T00:00:00");
+        if (to >= from) {
+            const cap = 366; // hard upper bound
+            for (let d = new Date(to), i = 0; d >= from && i < cap; d.setDate(d.getDate() - 1), i++) {
+                rangeKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+            }
+        }
+    } else {
+        const days = parseInt(dailyRange) || 7;
+        for (let i = 0; i < days; i++) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            rangeKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+        }
+    }
+    var e = (await msg("STATS_GET_RANGE", { days: rangeKeys }))?.data || {};
+    if (t) {
+        t.innerHTML = "";
+        var a = (await gSync(["settings"])).settings || {},
+            n = rangeKeys.filter(k => e[k]); // newest-first already
+        n.length ? (n.forEach(n => {
+            var i = e[n] || {},
+                s = i.productivity || 0,
+                o = i.learning || 0,
+                r = i.communication || 0,
+                l = i.distraction || 0,
+                c = i.uncategorized || 0,
+                d = s + o + r + l + c;
+            if (d < 60) return;
+            var v = document.createElement("div");
+            v.className = "db-card";
+            var h = "";
+            [{
+                c: "productivity",
+                l: "Productivity",
+                col: "var(--green)",
+                v: s
+            }, {
+                c: "learning",
+                l: "Learning",
+                col: "var(--purple)",
+                v: o
+            }, {
+                c: "communication",
+                l: "Communication",
+                col: "var(--blue)",
+                v: r
+            }, {
+                c: "distraction",
+                l: "Distraction",
+                col: "var(--red)",
+                v: l
+            }, {
+                c: "uncategorized",
+                l: "Uncategorized",
+                col: "var(--tx4)",
+                v: c
+            }].forEach(e => {
+                e.v > 0 && d && (h += `<div class="db-bar-segment" style="width:${e.v / d * 100}%; background:${e.col};"></div>`)
+            });
+            var f = "";
+            let hasTimeline = i.timeline && i.timeline.length > 0;
+            if (hasTimeline) {
+                f = `<div class="db-timeline-container" style="width: 100% !important; margin: 0; position: relative;">`;
+                for (let e = 1; e < 4; e++) f += `<div class="db-timeline-gridline" style="left:${25 * e}%;"></div>`;
+                let e = new Date(n + "T00:00:00").getTime(),
+                    t = e + 864e5;
+                i.timeline.forEach(a => {
+                    let n = Math.max(e, a.start),
+                        i = Math.min(t, a.end);
+                    i <= n || (f += `<div class="db-timeline-block" style="left:${(n - e) / 864e5 * 100}%;width:${(i - n) / 864e5 * 100}%;background:${catColor(a.cat)};" title="${new Date(n).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${new Date(i).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}"></div>`)
+                }), f += `</div>
+                        <div class="db-timeline-labels">
+                           <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11:59 PM</span>
+                        </div>`;
+            }
+            var y = '<div class="db-sites-grid">',
+                b = 0;
+            Object.entries(i.sites || {}).sort((e, t) => t[1] - e[1]).forEach(([e, t]) => {
+                if (!(t < 120)) {
+                    b++;
+                    var a = catColor(getEffectiveCat(e).cat);
+                    y += `<div class="db-site-pill" style="--border-color:${a}; align-items:center;">\n        <div class="db-site-left" style="color:var(--tx); font-size:15px; font-weight:800;">${getFav(e)}<span class="db-site-dom">${e}</span></div>\n        <span class="db-site-time" style="color:var(--tx); font-size:15px; font-weight:800;">${fmt(t)} <button class="scrub-btn" data-day="${n}" data-dom="${e}" data-secs="${t}" title="Adjust time" style="background:none;border:none;cursor:pointer;opacity:0.6;transition:all 0.2s;margin-left:6px;">⚙️</button></span>\n      </div>`
+                }
+            }), 0 === b && (y += '<span style="font-size:13px;color:var(--tx3);font-weight:600;grid-column:1/-1;">No major site activity tracked.</span>'), y += "</div>";
+            var $ = `
+              <div class="db-stats-grid">
+                <!-- Total Tracked -->
+                <div class="db-stat-box" style="--glow-color: rgba(92, 156, 252, 0.15); --glow-border: rgba(92, 156, 252, 0.2); --glow-shadow: rgba(92, 156, 252, 0.1);">
+                  <div class="db-stat-info">
+                    <span class="db-stat-title">Total Tracked</span>
+                    <span class="db-stat-value num" style="color: var(--tx);">${fmt(d)}</span>
+                  </div>
+                </div>
+                <!-- Productivity -->
+                <div class="db-stat-box" style="--glow-color: rgba(5, 213, 129, 0.15); --glow-border: rgba(5, 213, 129, 0.2); --glow-shadow: rgba(5, 213, 129, 0.1); opacity: ${s > 0 ? "1" : "0.35"};">
+                  <div class="db-stat-info">
+                    <span class="db-stat-title">Productivity</span>
+                    <span class="db-stat-value num" style="color: var(--green);">${fmt(s)}</span>
+                  </div>
+                </div>
+                <!-- Learning -->
+                <div class="db-stat-box" style="--glow-color: rgba(168, 85, 247, 0.15); --glow-border: rgba(168, 85, 247, 0.2); --glow-shadow: rgba(168, 85, 247, 0.1); opacity: ${o > 0 ? "1" : "0.35"};">
+                  <div class="db-stat-info">
+                    <span class="db-stat-title">Learning</span>
+                    <span class="db-stat-value num" style="color: var(--purple);">${fmt(o)}</span>
+                  </div>
+                </div>
+                <!-- Communication -->
+                <div class="db-stat-box" style="--glow-color: rgba(92, 156, 252, 0.15); --glow-border: rgba(92, 156, 252, 0.2); --glow-shadow: rgba(92, 156, 252, 0.1); opacity: ${r > 0 ? "1" : "0.35"};">
+                  <div class="db-stat-info">
+                    <span class="db-stat-title">Communication</span>
+                    <span class="db-stat-value num" style="color: var(--blue);">${fmt(r)}</span>
+                  </div>
+                </div>
+                <!-- Distraction -->
+                <div class="db-stat-box" style="--glow-color: rgba(244, 107, 122, 0.15); --glow-border: rgba(244, 107, 122, 0.2); --glow-shadow: rgba(244, 107, 122, 0.1); opacity: ${l > 0 ? "1" : "0.35"};">
+                  <div class="db-stat-info">
+                    <span class="db-stat-title">Distraction</span>
+                    <span class="db-stat-value num" style="color: var(--red);">${fmt(l)}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+            v.innerHTML = `
+              <div class="db-hero" style="margin-bottom: 24px;">
+                <div class="db-header-row" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 6px;">
+                  <div class="db-card-header-txt">
+                    ${new Date(n + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                  </div>
+                  ${hasTimeline ? `
+                    <div class="db-card-header-txt">
+                      24-Hour Active Timeline
+                    </div>
+                  ` : ''}
+                </div>
+                ${hasTimeline ? `
+                  <div class="db-timeline-full-wrap" style="width: 100%; margin-bottom: 20px;">
+                    ${f}
+                  </div>
+                ` : ''}
+                ${$}
+              </div>
+              <div class="db-bar-container">
+                <div class="db-bar-wrap">${h}</div>
+                <div class="db-bar-legend">
+                  <div class="db-bar-legend-item"><span class="db-bar-legend-dot" style="background:var(--green)"></span> Productivity</div>
+                  <div class="db-bar-legend-item"><span class="db-bar-legend-dot" style="background:var(--purple)"></span> Learning</div>
+                  <div class="db-bar-legend-item"><span class="db-bar-legend-dot" style="background:var(--blue)"></span> Communication</div>
+                  <div class="db-bar-legend-item"><span class="db-bar-legend-dot" style="background:var(--red)"></span> Distraction</div>
+                  <div class="db-bar-legend-item"><span class="db-bar-legend-dot" style="background:var(--tx4)"></span> Uncategorized</div>
+                </div>
+              </div>
+              ${y}
+            `, t.appendChild(v)
+        }), t.querySelectorAll(".scrub-btn").forEach(e => {
+            e.addEventListener("click", async () => {
+                await promptPinIfEnabled("lockDanger") && openScrubModal(e.getAttribute("data-day"), e.getAttribute("data-dom"), parseInt(e.getAttribute("data-secs")))
+            })
+        })) : t.innerHTML = '<div class="empty">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3; margin-bottom:16px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>\n      <p>No activity data available yet.</p>\n    </div>'
+    }
+}
+async function renderTopSites() {
+    var s = {}, _activeDayCount = 1;
+    // FF v6.8: fetch pinned sites from chrome.storage.local
+    const storageRes = await new Promise(resolve => {
+        chrome.storage.local.get(["pinnedSites"], resolve);
+    }) || {};
+    const pinnedSites = storageRes.pinnedSites || [];
+
+    if ("all" === siteRange) {
+        // FF v6.7: use fast allTimeTotals index instead of loading all daily data
+        const _att = (await msg("STATS_GET_ALLTIME_TOTALS"))?.allTimeTotals || {};
+        Object.entries(_att).forEach(([dom, secs]) => { s[dom] = secs; });
+        _activeDayCount = (await msg("STATS_GET_TOTAL_DAYS"))?.totalDays || 1;
+    } else {
+        var _rangeDays = [];
+        for (var n = parseInt(siteRange) - 1; n >= 0; n--) {
+            var i = new Date; i.setDate(i.getDate() - n);
+            _rangeDays.push(i.toISOString().split("T")[0]);
+        }
+        const _rangeData = (await msg("STATS_GET_RANGE", { days: _rangeDays }))?.data || {};
+        // Bug #10 fix: compute _activeDayCount in the same loop instead of a separate O(n*m) reduce
+        _rangeDays.forEach(d => {
+            const entries = Object.entries(_rangeData[d]?.sites || {});
+            if (!entries.length) return;
+            let dayHasActivity = false;
+            entries.forEach(([dom, secs]) => {
+                s[dom] = (s[dom] || 0) + secs;
+                if (secs > 0) dayHasActivity = true;
+            });
+            if (dayHasActivity) _activeDayCount++;
+        });
+        _activeDayCount = Math.max(1, _activeDayCount);
+    }
+    var t = Object.keys(s);
+    // FF v6.8: Sort prioritized pinned sites first, then descending by duration
+    var o = Object.entries(s).sort((e, t) => {
+        const pinA = pinnedSites.includes(e[0]);
+        const pinB = pinnedSites.includes(t[0]);
+        if (pinA && !pinB) return -1;
+        if (!pinA && pinB) return 1;
+        return t[1] - e[1];
+    }).slice(0, 50),
+        r = $("top-sites");
+    if (r)
+        if (r.innerHTML = "", o.length) {
+            var l = _activeDayCount; // FF v6.7: already computed in range/alltime branch above
+            o.forEach(e => {
+                var t = getEffectiveCat(e[0]),
+                    a = document.createElement("div");
+                a.className = "siterow";
+                a.style.gridTemplateColumns = "minmax(180px, 1.3fr) 60px 150px 75px 75px";
+                const isPinned = pinnedSites.includes(e[0]);
+                var n = `<select class="sel" data-domain="${e[0]}" style="padding:4px 8px;font-size:12px;width:100% !important;box-sizing:border-box;">`;
+                allCats().forEach(e => n += `<option value="${e}"${e === t.cat ? " selected" : ""}>${catEmoji(e)} ${catLabel(e, !1)}</option>`), n += "</select>";
+
+                a.innerHTML = `\n      <span class="dom" style="display:flex; align-items:center; gap:8px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">\n        ${getFav(e[0])}\n        <span style="color:var(--tx); font-weight:800; font-size:15px; margin-left:4px;">${e[0]}</span>\n        ${t.auto ? '<span style="font-size:11px;color:var(--tx3);" title="Auto-categorized">✨</span>' : ""}\n      </span>\n      <div style="display:flex; align-items:center; gap:10px; justify-content:flex-start; margin-left: -20px;">\n        <button class="top-site-pin-btn pinned-${isPinned}" data-domain="${e[0]}" title="${isPinned ? 'Unpin site' : 'Pin site to top'}" style="background:none; border:none; cursor:pointer; font-size:13px; padding:4px;">\n          📌\n        </button>\n        <a href="https://${e[0]}" class="top-site-visit-btn" target="_blank" title="Visit site" style="font-size:12px; text-decoration:none; display:inline-flex; align-items:center;">\n          ↗️\n        </a>\n      </div>\n      ${n}\n      <span class="stat-pill">${fmt(e[1])}</span>\n      <span class="stat-pill">~${fmt(Math.round(e[1] / l))}</span>\n    `;
+
+                a.querySelector(".sel")?.addEventListener("change", async function () {
+                    await tagSite(this.getAttribute("data-domain"), this.value), loadAnalytics()
+                });
+
+                a.querySelector(".top-site-pin-btn")?.addEventListener("click", function () {
+                    const dom = this.getAttribute("data-domain");
+                    chrome.storage.local.get(["pinnedSites"], function (res) {
+                        let list = res.pinnedSites || [];
+                        if (list.includes(dom)) {
+                            list = list.filter(x => x !== dom);
+                        } else {
+                            list.push(dom);
+                        }
+                        chrome.storage.local.set({ pinnedSites: list }, function () {
+                            renderTopSites();
+                        });
+                    });
+                });
+
+                r.appendChild(a)
+            })
+        } else r.innerHTML = '<div class="empty">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3; margin-bottom:16px;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1 4-10z"></path></svg>\n      <p>No sites tracked for this period.</p>\n    </div>'
+}
+async function renderTrend() {
+    var _trendCustom = trendCustomFrom && trendCustomTo;
+    var _windowDays = _trendCustom
+        ? Math.max(1, Math.round((new Date(trendCustomTo) - new Date(trendCustomFrom)) / 86400000) + 1)
+        : trendRange;
+    for (var {
+        days: e,
+        labels: t
+    } = getDays(_trendCustom ? { from: trendCustomFrom, to: trendCustomTo } : trendRange), a = await msg("STATS_GET_RANGE", {
+        days: e
+    }), n = a?.data || {}, i = 0, s = 0, o = e.map(e => {
+        var t = (n[e] || {}).productivity || 0;
+        return i += t, Math.round(t / 60)
+    }), r = e.map(e => {
+        var t = (n[e] || {}).learning || 0;
+        return i += t, Math.round(t / 60)
+    }), l = e.map(e => {
+        var t = (n[e] || {}).communication || 0;
+        return Math.round(t / 60)
+    }), c = e.map(e => {
+        var t = (n[e] || {}).distraction || 0;
+        return s += t, Math.round(t / 60)
+    }), d = e.map(e => {
+        var t = (n[e] || {}).uncategorized || 0;
+        return Math.round(t / 60)
+    }), u = [], p = 2 * _windowDays - 1; p >= _windowDays; p--) {
+        // Previous-period window of equal length, ending the day before our window starts.
+        var anchor = _trendCustom ? new Date(trendCustomFrom + "T00:00:00") : new Date();
+        var g = new Date(anchor);
+        if (_trendCustom) {
+            g.setDate(anchor.getDate() - (p - _windowDays + 1));
+        } else {
+            g.setDate(g.getDate() - p);
+        }
+        u.push(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, "0")}-${String(g.getDate()).padStart(2, "0")}`)
+    }
+    var m = await msg("STATS_GET_RANGE", {
+        days: u
+    }),
+        v = m?.data || {},
+        h = 0,
+        f = 0;
+    u.forEach(e => {
+        h += (v[e]?.productivity || 0) + (v[e]?.learning || 0), f += v[e]?.distraction || 0
+    });
+    var y = h > 0 ? Math.round((i - h) / h * 100) : i > 0 ? 100 : 0,
+        b = f > 0 ? Math.round((s - f) / f * 100) : s > 0 ? 100 : 0;
+
+    function k(e, t) {
+        return 0 === e ? '<span style="color:var(--tx3)">No change</span>' : `<span style="color:${(t ? e > 0 : e < 0) ? "var(--green)" : "var(--red)"};font-weight:800">${e > 0 ? "↗" : "↘"} ${Math.abs(e)}%</span> <span style="font-size:12px;color:var(--tx2);font-weight:600">vs prev ${_windowDays}d</span>`
+    }
+    let x = $("trend-study-total")?.parentElement?.parentElement;
+    x && !x.dataset.modified && (x.dataset.modified = "true", x.innerHTML = '\n          <div style="flex:1;background:var(--bg3);padding:20px;border-radius:16px;border:1px solid var(--bd);">\n              <div style="font-size:12px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Productivity Focus</div>\n              <div id="pop-prod" style="font-size:24px;font-family:monospace;font-weight:800;line-height:1.2;">—</div>\n          </div>\n          <div style="flex:1;background:var(--bg3);padding:20px;border-radius:16px;border:1px solid var(--bd);">\n              <div style="font-size:12px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Distraction Tracking</div>\n              <div id="pop-dist" style="font-size:24px;font-family:monospace;font-weight:800;line-height:1.2;">—</div>\n          </div>\n      '), $("pop-prod") && ($("pop-prod").innerHTML = k(y, !0) + `<br><span style="font-size:13px;color:var(--tx);font-family:'Inter',sans-serif;font-weight:700">Current: ${fmt(i)}</span>`), $("pop-dist") && ($("pop-dist").innerHTML = k(b, !1) + `<br><span style="font-size:13px;color:var(--tx);font-family:'Inter',sans-serif;font-weight:700">Current: ${fmt(s)}</span>`);
+    var w = !$("tog-trend-prod") || $("tog-trend-prod").checked,
+        E = !$("tog-trend-lrn") || $("tog-trend-lrn").checked,
+        S = !$("tog-trend-comm") || $("tog-trend-comm").checked,
+        L = !$("tog-trend-dist") || $("tog-trend-dist").checked,
+        T = !$("tog-trend-unc") || $("tog-trend-unc").checked;
+    "function" == typeof drawTrendChart && $("trend-chart") && drawTrendChart("trend-chart", "trend-y-axis", "trend-scroll", t, w ? o : null, E ? r : null, S ? l : null, L ? c : null, T ? d : null)
+}
+async function loadDashboardStreak() {
+    var t = await msg("STATS_GET_STREAK"),
+        s = t && t.streak,
+        a = $("streak-badge");
+    if (a) {
+        if (s && s.currentStreak > 0) {
+            a.textContent = "🔥 " + s.currentStreak + "d";
+            a.style.display = "inline-flex";
+            a.style.background = "var(--amber-bg)";
+            a.style.color = "var(--amber)";
+            a.style.borderColor = "rgba(246,184,70,.3)";
+        } else if (s) {
+            a.textContent = "🧊 " + s.currentStreak + "d";
+            a.style.display = "inline-flex";
+            a.style.background = "var(--bg4)";
+            a.style.color = "var(--tx3)";
+            a.style.borderColor = "var(--bd2)";
+        } else {
+            a.style.display = "none";
+        }
+    }
+}
+async function loadWeeklyGoalSettings() {
+    var e = (await gSync(["settings"])).settings || {};
+    $("weekly-goal-input") && ($("weekly-goal-input").value = e.weeklyGoalHours || 0), $("streak-min-input") && ($("streak-min-input").value = e.streakMinMinutes || 30);
+    let t = e.goalCats || ["productivity", "learning"];
+    document.querySelectorAll(".goal-cb-cat").forEach(e => {
+        e.checked = t.includes(e.value)
+    }), await renderGoalPreview(e.weeklyGoalHours || 0);
+    await loadDashboardStreak();
+}
+async function renderGoalPreview(e) {
+    var t = await msg("STATS_GET_WEEK"),
+        a = t?.studySecs || 0,
+        n = 3600 * e,
+        i = Math.min(1, n > 0 ? a / n : 0);
+    $("goal-preview-bar") && ($("goal-preview-bar").style.width = Math.round(100 * i) + "%", $("goal-preview-bar").style.background = i >= 1 ? "var(--amber)" : "var(--green)"), $("goal-preview-pct") && ($("goal-preview-pct").textContent = n > 0 ? i >= 1 ? "🏆" : Math.round(100 * i) + "%" : "—", $("goal-preview-pct").style.color = i >= 1 ? "var(--amber)" : "var(--green)"), $("goal-preview-done") && ($("goal-preview-done").textContent = Math.floor(a / 3600) + "h " + Math.floor(a % 3600 / 60) + "m done"), $("goal-preview-left") && ($("goal-preview-left").textContent = n > 0 ? i >= 1 ? "Goal hit! ✓" : fmt(Math.max(0, n - a)) + " remaining" : "No goal")
+}
+
+function renderWhitelist(e) {
+    var t = $("whitelist-container");
+    t && (t.innerHTML = "", e.length ? (e.forEach((e, a) => {
+        var n = document.createElement("div");
+        n.style.cssText = "display:flex;align-items:center;justify-content:space-between;background:var(--bg3);padding:10px 16px;border-radius:10px;border:1px solid var(--bd2);", n.innerHTML = `<span style="font-family:monospace;font-size:14px;color:var(--tx);font-weight:700">${e}</span><button class="bic del rm-wl" data-idx="${a}" style="width:28px;height:28px;font-size:12px">✕</button>`, t.appendChild(n)
+    }), t.querySelectorAll(".rm-wl").forEach(t => t.addEventListener("click", async () => {
+        e.splice(parseInt(t.getAttribute("data-idx")), 1), await sLocal({
+            idleWhitelist: e
+        }), renderWhitelist(e), toast("Removed exception", "ok")
+    }))) : t.innerHTML = '<span style="font-size:13px;color:var(--tx3)">No exceptions added.</span>')
+}
+// Bug #5 fix: accept pre-loaded settings to avoid double gSync when called alongside loadSettings
+async function loadExtendedSettings(preloadedSettings) {
+    var e = preloadedSettings || (await gSync(["settings"])).settings || {};
+    if ($("tog-pc") && ($("tog-pc").checked = !!e.passcodeEnabled), $("tog-fun") && ($("tog-fun").checked = !1 !== e.funnyBlocked), $("block-msg") && ($("block-msg").value = e.customBlockMsg || ""), $("tab-limit-input") && ($("tab-limit-input").value = e.tabLimit || 0), $("tog-time-warn") && ($("tog-time-warn").checked = !1 !== e.timeWarningEnabled), $("time-warn-secs") && ($("time-warn-secs").value = e.timeWarningSecs || 60), $("tog-badge") && ($("tog-badge").checked = !1 !== e.showBadge), $("tog-newtab") && ($("tog-newtab").checked = !0 === e.customNewTab), $("idle-timeout-sel") && ($("idle-timeout-sel").value = e.idleTimeout || 30), $("welcome-back-thresh-sel") && ($("welcome-back-thresh-sel").value = e.welcomeBackThresh || 10), renderWhitelist((await gLocal(["idleWhitelist"])).idleWhitelist || []), $("pin-status-badge"))
+        if (e.passcodeHash) {
+            $("pin-status-badge").textContent = "🔒 PIN Active", $("pin-status-badge").style.color = "var(--green)";
+            var t = $("pin-status-badge").parentElement;
+            t.style.display = "flex", t.style.justifyContent = "space-between", t.style.alignItems = "center", (a = document.getElementById("pin-actions-div")) || ((a = document.createElement("div")).id = "pin-actions-div", a.style.display = "flex", a.style.gap = "12px", $("btn-change-pin") && a.appendChild($("btn-change-pin")), $("btn-remove-pin") && a.appendChild($("btn-remove-pin")), t.appendChild(a)), $("granular-locks") && ($("granular-locks").style.display = "block"), $("granular-locks-overlay") && ($("granular-locks-overlay").style.display = "none"), $("pin-setup-box").style.display = "none", $("pin-manage-box").style.display = "flex";
+            $("lock-dash") && ($("lock-dash").checked = !!e.lockDash);
+            $("lock-stop") && ($("lock-stop").checked = !1 !== e.lockStop);
+            $("lock-rules") && ($("lock-rules").checked = !1 !== e.lockRules);
+            $("lock-freetime") && ($("lock-freetime").checked = !1 !== e.lockFreetime);
+            $("lock-focus-scheds") && ($("lock-focus-scheds").checked = !1 !== e.lockFocusScheds);
+            $("lock-danger") && ($("lock-danger").checked = !1 !== e.lockDanger);
+            $("lock-tweaks") && ($("lock-tweaks").checked = !1 !== e.lockTweaks);
+        } else {
+            var a;
+            $("pin-status-badge").textContent = "🔓 Not Set", $("pin-status-badge").style.color = "var(--tx2)";
+            if ($("granular-locks")) $("granular-locks").style.display = "block";
+            if ($("granular-locks-overlay")) { $("granular-locks-overlay").style.display = "flex"; }
+            (a = document.getElementById("pin-actions-div")) && ($("btn-change-pin") && $("pin-manage-box").insertBefore($("btn-change-pin"), $("pin-manage-box").firstChild), $("btn-remove-pin") && $("pin-manage-box").insertBefore($("btn-remove-pin"), $("pin-manage-box").firstChild), a.remove()), $("pin-setup-box").style.display = "flex", $("pin-manage-box").style.display = "none"
+        } var n = $("free-hours-list");
+    const _DAY_NAMES = ["S", "M", "T", "W", "T", "F", "S"];
+    var isFreeTimeLocked = e.passcodeHash && !1 !== e.lockFreetime && !window.__freeTimeUnlocked;
+    if (n) {
+        n.innerHTML = "";
+        const list = e.freeTimeHours || [];
+        for (let t = 0; t < 3; t++) {
+            const fh = list[t];
+            const a = document.createElement("div");
+            a.className = "free-hour-card";
+            a.style.cssText = `
+                flex: 1;
+                min-width: 200px;
+                background: var(--bg3);
+                border-radius: 12px;
+                border: 1px solid var(--bd);
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                min-height: 120px;
+                position: relative;
+                transition: all 0.2s ease;
+                box-sizing: border-box;
+            `;
+            if (!fh) {
+                // Empty slot: Add card!
+                a.style.borderStyle = "dashed";
+                a.style.cursor = "pointer";
+                a.style.justifyContent = "center";
+                a.style.alignItems = "center";
+                a.innerHTML = `
+                    <div style="font-size:24px; color:var(--tx3); margin-bottom:4px;">+</div>
+                    <div style="font-size:13px; font-weight:800; color:var(--tx3);">Add Free-time</div>
+                `;
+                a.addEventListener("mouseover", () => {
+                    a.style.borderColor = "var(--green)";
+                    a.querySelector("div:nth-child(2)").style.color = "var(--green)";
+                });
+                a.addEventListener("mouseout", () => {
+                    a.style.borderColor = "var(--bd)";
+                    a.querySelector("div:nth-child(2)").style.color = "var(--tx3)";
+                });
+                a.addEventListener("click", async () => {
+                    if (isFreeTimeLocked) {
+                        if (!await promptPinIfEnabled("lockFreetime")) return;
+                        window.__freeTimeUnlocked = true;
+                    }
+                    showFreeTimeEditModal(t, null);
+                });
+            } else {
+                // Configured slot: Show details!
+                const start12 = formatTime12(fh.start || "18:00");
+                const end12 = formatTime12(fh.end || "22:00");
+                const activeDays = fh.days || [0, 1, 2, 3, 4, 5, 6];
+                const dayBubbles = _DAY_NAMES.map((name, idx) => {
+                    const isActive = activeDays.includes(idx);
+                    return `<span style="
+                        font-size: 10px;
+                        font-weight: 800;
+                        width: 18px;
+                        height: 18px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 50%;
+                        background: ${isActive ? 'var(--green-bg)' : 'var(--bg4)'};
+                        color: ${isActive ? 'var(--green)' : 'var(--tx3)'};
+                        border: 1px solid ${isActive ? 'var(--green-bd)' : 'var(--bd)'};
+                    ">${name}</span>`;
+                }).join("");
+
+                a.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span style="font-size:11px; font-weight:800; color:var(--tx3); text-transform:uppercase; letter-spacing:0.05em;">Free-time Hours</span>
+                            <span style="font-size:14px; font-weight:800; color:var(--tx);">${start12} to ${end12}</span>
+                        </div>
+                        <div class="fh-actions" style="display:flex; gap:6px;">
+                            <button class="bic rm-fh-btn" data-idx="${t}" title="Delete" style="background:var(--bg4); border:1px solid var(--bd); border-radius:6px; cursor:pointer; width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; color:var(--red); padding: 0;">✕</button>
+                            <button class="bic edit-fh-btn" data-idx="${t}" title="Edit" style="background:var(--bg4); border:1px solid var(--bd); border-radius:6px; cursor:pointer; width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; color:var(--tx2); padding: 0;">✎</button>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:3px; margin-top:12px;">
+                        ${dayBubbles}
+                    </div>
+                `;
+
+                // Wire edit button
+                a.querySelector(".edit-fh-btn").addEventListener("click", async (ev) => {
+                    ev.stopPropagation();
+                    if (isFreeTimeLocked) {
+                        if (!await promptPinIfEnabled("lockFreetime")) return;
+                        window.__freeTimeUnlocked = true;
+                    }
+                    showFreeTimeEditModal(t, fh);
+                });
+
+                // Wire delete button
+                a.querySelector(".rm-fh-btn").addEventListener("click", async (ev) => {
+                    ev.stopPropagation();
+                    if (isFreeTimeLocked) {
+                        if (!await promptPinIfEnabled("lockFreetime")) return;
+                        window.__freeTimeUnlocked = true;
+                    }
+                    var freeList = e.freeTimeHours || [];
+                    freeList.splice(t, 1);
+                    await sSync({
+                        settings: {
+                            ...e,
+                            freeTimeHours: freeList
+                        }
+                    });
+                    loadExtendedSettings();
+                    await msg("UPDATE_IDLE");
+                });
+            }
+            n.appendChild(a);
+        }
+    }
+
+    function formatTime12(time24) {
+        if (!time24) return "—";
+        const [hStr, mStr] = time24.split(":");
+        let h = parseInt(hStr, 10);
+        const m = mStr || "00";
+        const ampm = h >= 12 ? "PM" : "AM";
+        h = h % 12;
+        if (h === 0) h = 12;
+        return `${String(h).padStart(2, "0")}:${m} ${ampm}`;
+    }
+
+    function showFreeTimeEditModal(slotIdx, fhObj) {
+        const modal = $("free-time-modal");
+        if (!modal) return;
+        $("ft-modal-title").textContent = fhObj ? "Edit Free-time" : "Add Free-time";
+        $("ft-start").value = fhObj ? (fhObj.start || "18:00") : "18:00";
+        $("ft-end").value = fhObj ? (fhObj.end || "22:00") : "22:00";
+        const daysList = fhObj ? (fhObj.days || [0, 1, 2, 3, 4, 5, 6]) : [0, 1, 2, 3, 4, 5, 6];
+        document.querySelectorAll(".ft-day-cb").forEach(cb => {
+            cb.checked = daysList.includes(parseInt(cb.value));
+        });
+        modal.classList.remove("hide");
+        const saveBtn = $("ft-modal-save");
+        const cancelBtn = $("ft-modal-cancel");
+        const closeBtn = $("ft-modal-close");
+        const closeModal = () => { modal.classList.add("hide"); };
+        cancelBtn.onclick = closeModal;
+        closeBtn.onclick = closeModal;
+        saveBtn.onclick = async () => {
+            const startVal = $("ft-start").value || "18:00";
+            const endVal = $("ft-end").value || "22:00";
+            const checkedDays = Array.from(document.querySelectorAll(".ft-day-cb"))
+                .filter(cb => cb.checked)
+                .map(cb => parseInt(cb.value));
+            if (!checkedDays.length) {
+                toast("Please select at least one day", "er");
+                return;
+            }
+            var settingsData = (await gSync(["settings"])).settings || {};
+            var freeList = settingsData.freeTimeHours || [];
+            const newFh = { start: startVal, end: endVal, days: checkedDays };
+            if (slotIdx < freeList.length) {
+                freeList[slotIdx] = newFh;
+            } else {
+                freeList.push(newFh);
+            }
+            settingsData.freeTimeHours = freeList;
+            await sSync({ settings: settingsData });
+            closeModal();
+            loadExtendedSettings();
+            await msg("UPDATE_IDLE");
+            toast("Free-time slot saved successfully!", "ok");
+        };
+    }
+}
+async function loadFocusHistory() {
+    var e = await msg("GET_FOCUS_HISTORY"),
+        t = e?.focusHistory || [],
+        a = $("history-list");
+    if (a) {
+        if (!t.length) return a.innerHTML = '<div class="empty" style="padding:40px 10px">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3; margin-bottom:16px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>\n      <p>No focus sessions yet.</p>\n      <button class="bp" id="btn-empty-start-focus" style="margin-top:16px;padding:10px 24px;">▶ Start First Session</button>\n    </div>', void ($("btn-empty-start-focus") && $("btn-empty-start-focus").addEventListener("click", () => {
+            $("btn-fs").click()
+        }));
+        var n = {};
+        t.forEach(e => {
+            n[e.date] || (n[e.date] = []), n[e.date].push(e)
+        }), a.innerHTML = "", Object.keys(n).sort().reverse().forEach(e => {
+            var t = document.createElement("div");
+            t.style.cssText = "font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin:16px 0 8px;padding:0 4px", t.textContent = new Date(e + "T00:00:00").toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric"
+            }), a.appendChild(t), n[e].forEach(e => {
+                var t = document.createElement("div");
+                const presetMeta = {
+                    pomodoro: { emoji: "🍅", name: "Pomodoro" },
+                    deep_work: { emoji: "🧠", name: "Deep Work" },
+                    sprint: { emoji: "⚡", name: "Short Sprint" },
+                    custom: { emoji: "⚙️", name: "Custom" }
+                };
+                const pObj = presetMeta[e.presetId] || { emoji: "⏱", name: "Focus" };
+                t.style.cssText = "display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg3);border:1px solid var(--bd);border-radius:12px;margin-bottom:8px;transition:var(--trans)", t.onmouseover = () => t.style.borderColor = "var(--bd2)", t.onmouseout = () => t.style.borderColor = "var(--bd)", t.innerHTML = `<div style="font-size:20px" title="${pObj.name}">${pObj.emoji}</div><div style="flex:1"><div class="num" style="font-size:14px;font-weight:800;color:var(--tx)">${e.startedAt ? new Date(e.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"} <span style="font-size:12px;font-weight:600;color:var(--tx2);margin-left:6px;background:var(--bg4);padding:2px 6px;border-radius:6px;border:1px solid var(--bd2)">${pObj.name}</span></div><div class="num" style="font-size:12px;color:var(--tx2);margin-top:2px;font-weight:600">${e.cyclesCompleted || 0} cycles</div></div><div class="num" style="font-family:monospace;font-size:16px;font-weight:800;color:var(--green)">${Math.round(e.durationMins || 0)}m</div>`, a.appendChild(t)
+            })
+        })
+    }
+} ["tog-ov-prod", "tog-ov-lrn", "tog-ov-dist", "tog-ov-comm", "tog-ov-unc"].forEach(e => {
+    $(e) && $(e).addEventListener("change", renderOverview)
+}), ["tog-trend-prod", "tog-trend-lrn", "tog-trend-comm", "tog-trend-dist", "tog-trend-unc"].forEach(e => {
+    $(e) && $(e).addEventListener("change", renderTrend)
+}), $("weekly-goal-input") && $("weekly-goal-input").addEventListener("input", () => {
+    renderGoalPreview(parseInt($("weekly-goal-input").value) || 0)
+}), $("btn-add-whitelist") && $("btn-add-whitelist").addEventListener("click", async () => {
+    var e = $("whitelist-inp").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+    if (e) {
+        var t = (await gLocal(["idleWhitelist"])).idleWhitelist || [];
+        t.includes(e) ? toast("Already added", "er") : (t.push(e), await sLocal({
+            idleWhitelist: t
+        }), $("whitelist-inp").value = "", renderWhitelist(t), toast("Exception added", "ok"))
+    }
+}), $("btn-save-set") && $("btn-save-set").addEventListener("click", async () => {
+    var e = (await gSync(["settings"])).settings || {};
+    e.passcodeEnabled = $("tog-pc")?.checked || !1, e.funnyBlocked = !1 !== $("tog-fun")?.checked, e.customBlockMsg = $("block-msg")?.value?.trim() || "", e.tabLimit = parseInt($("tab-limit-input")?.value) || 0, e.timeWarningEnabled = !1 !== $("tog-time-warn")?.checked, e.timeWarningSecs = parseInt($("time-warn-secs")?.value) || 60, e.showBadge = !1 !== $("tog-badge")?.checked, e.customNewTab = !0 === $("tog-newtab")?.checked, e.idleTimeout = parseInt($("idle-timeout-sel")?.value) || 60, e.welcomeBackThresh = parseInt($("welcome-back-thresh-sel")?.value) || 10, e.passcodeHash && (e.lockDash = $("lock-dash")?.checked || !1, e.lockStop = !1 !== $("lock-stop")?.checked, e.lockRules = !1 !== $("lock-rules")?.checked, e.lockFreetime = !1 !== $("lock-freetime")?.checked, e.lockFocusPresets = !$("lock-focus-presets") || $("lock-focus-presets").checked, e.lockFocusScheds = !$("lock-focus-scheds") || $("lock-focus-scheds").checked, e.lockDanger = !1 !== $("lock-danger")?.checked, e.lockTweaks = !1 !== $("lock-tweaks")?.checked);
+    await sSync({
+        settings: e
+    }), toast("Settings saved", "ok"), loadExtendedSettings(), msg("UPDATE_IDLE")
+}), $("btn-pin") && $("btn-pin").addEventListener("click", async () => {
+    var e = $("pin1").value,
+        t = $("pin2").value,
+        a = $("pin-msg");
+    if (6 !== e.length || !/^\d{6}$/.test(e)) return a.textContent = "PIN must be exactly 6 digits", void (a.style.color = "var(--red)");
+    if (e !== t) return a.textContent = "PINs do not match", void (a.style.color = "var(--red)");
+    var n = (await gSync(["settings"])).settings || {};
+    n.passcodeHash || (n.lockDash = !1, n.lockSettings = !1, n.lockStop = !0, n.lockRules = !0, n.lockFreetime = !0, n.lockDanger = !0, n.lockTweaks = !0, n.lockFocusScheds = !0, n.lockFocusPresets = !0), n.passcodeHash = await hashPin(e), n.passcodeEnabled = !0, await sSync({
+        settings: n
+    }), $("pin1").value = "", $("pin2").value = "", a.textContent = "", toast("PIN saved & active", "ok"), loadExtendedSettings()
+}), $("btn-remove-pin") && $("btn-remove-pin").addEventListener("click", async () => {
+    if (await showPass(!0, "Verification Required", "Enter current PIN to remove it.")) {
+        var e = (await gSync(["settings"])).settings || {};
+        e.passcodeHash = null, e.passcodeEnabled = !1, await sSync({
+            settings: e
+        }), toast("PIN Removed", "ok"), loadExtendedSettings()
+    }
+}), $("btn-change-pin") && $("btn-change-pin").addEventListener("click", async () => {
+    await showPass(!0, "Verification Required", "Enter current PIN to change it.") && ($("pin-manage-box").style.display = "none", $("pin-setup-box").style.display = "flex")
+}), $("btn-rst-stats") && $("btn-rst-stats").addEventListener("click", async () => {
+    if (!(await promptPinIfEnabled("lockDanger"))) return;
+    if (!confirm("Delete ALL statistics? This cannot be undone.")) return;
+    // FF v4.4: clear Dexie store (legacy chrome.storage.local.daily was a no-op after migration)
+    await msg("STATS_RESET_ALL");
+    await sLocal({ daily: {} });
+    toast("Stats reset", "ok");
+    loadAnalytics();
+}), $("btn-clr-rules") && $("btn-clr-rules").addEventListener("click", async () => {
+    await promptPinIfEnabled("lockDanger") && confirm("Remove all block/allow rules?") && (rules = [], allowList = [], await sLocal({
+        blockRules: [],
+        allowList: []
+    }), await msg("TRIGGER_DNR_UPDATE"), renderCombined(), toast("Rules cleared", "ok"))
+}), $("btn-clr-cats") && $("btn-clr-cats").addEventListener("click", async () => {
+    await promptPinIfEnabled("lockDanger") && confirm("Remove all custom categories?") && (siteCategories = {}, await sLocal({
+        siteCategories: {}
+    }), renderCategories(), toast("Categories cleared", "ok"))
+}), $("btn-clear-history") && $("btn-clear-history").addEventListener("click", async () => {
+    confirm("Clear history?") && (await msg("CLEAR_FOCUS_HISTORY"), loadFocusHistory(), toast("Cleared", "ok"))
+});
+
+var _origRF = renderFocus,
+    _focusTick = null;
+
+function startSmoothFocusTick(e) {
+    _focusTick && clearInterval(_focusTick), e && e.active && !e.paused && e.phaseEndsAt && (_focusTick = setInterval(function () {
+        var t = Math.max(0, Math.round((e.phaseEndsAt - Date.now()) / 1e3)),
+            a = "work" === e.phase,
+            n = e.fullDuration || (a ? 1500 : "long_break" === e.phase ? 900 : 300);
+        $("frf") && $("frf").setAttribute("stroke-dashoffset", (FCIRC * Math.max(0, 1 - t / n)).toFixed(1)), $("ftb") && ($("ftb").textContent = fmtT(t));
+        const i = document.createElement("canvas");
+        i.width = 32, i.height = 32;
+        const s = i.getContext("2d"),
+            o = document.documentElement.classList.contains("light");
+        s.fillStyle = o ? "#f1f5f9" : "#121212", s.beginPath(), s.arc(16, 16, 16, 0, 2 * Math.PI), s.fill(), s.strokeStyle = "#2E2E2E", s.lineWidth = 4, s.beginPath(), s.arc(16, 16, 12, 0, 2 * Math.PI), s.stroke(), s.strokeStyle = a ? "#05D581" : "#F6B846", s.lineCap = "round", s.beginPath(), s.arc(16, 16, 12, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * (1 - t / n)), s.stroke();
+        let r = document.getElementById("dynamic-favicon");
+        r && (r.href = i.toDataURL()), t <= 0 && (clearInterval(_focusTick), _focusTick = null, setTimeout(async () => {
+            var e = await msg("FOCUS_GET_STATE");
+            renderFocus(e?.focusState, await getActiveWorkMins()), loadFocusHistory()
+        }, 1500))
+    }, 1e3))
+}
+renderFocus = function (e, t) {
+    if (_origRF(e, t), e && e.active && !e.paused && e.phaseEndsAt) startSmoothFocusTick(e);
+    else {
+        _focusTick && (clearInterval(_focusTick), _focusTick = null);
+        let e = document.getElementById("dynamic-favicon");
+        e && (e.href = "../icons/icon128.png")
+    }
+}, async function () {
+    hideAnalyticsHeader();
+    const e = await msg("GET_AUTO_CATEGORIES");
+    e && e.autoCategories && (AUTO_CATEGORIES = e.autoCategories), await checkGate();
+    // Bug #5 fix: fetch settings once and share with loadSettings
+    const _sharedSettings = (await gSync(["settings"])).settings || {};
+    await loadSettings(_sharedSettings);
+
+    // Find active tab from hash (default to analytics)
+    let initialTab = "analytics";
+    const hash = window.location.hash.replace("#", "");
+    if (["analytics", "focus", "sitemanager", "settings"].includes(hash)) {
+        initialTab = hash;
+    }
+
+    // Programmatically click the navigation button for the active tab to trigger its load sequence
+    const navBtn = document.querySelector(`.ni[data-tab="${initialTab}"]`);
+    if (navBtn) {
+        navBtn.click();
+    } else {
+        loadAnalytics();
+    }
+    // FF v6.7: Floating "Save All Settings" button that follows the user when on the Settings tab
+    (function initFloatingSave() {
+        const _fab = document.createElement("button");
+        _fab.id = "floating-save-btn";
+        _fab.textContent = "Save All Settings";
+        _fab.style.cssText = "display:none;position:fixed;bottom:28px;right:28px;z-index:9000;background:var(--green);color:#000;font-weight:800;font-size:16px;padding:12px 22px;border-radius:14px;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(5,213,129,.4);transition:opacity .2s,transform .2s;font-family:inherit;";
+        document.body.appendChild(_fab);
+        _fab.addEventListener("click", () => { $("btn-save-set") && $("btn-save-set").click(); });
+        // Show only on settings tab
+        document.querySelectorAll(".ni[data-tab]").forEach(tab => tab.addEventListener("click", () => {
+            _fab.style.display = tab.getAttribute("data-tab") === "settings" ? "block" : "none";
+        }));
+        if (window.location.hash === "#settings") _fab.style.display = "block";
+    })()
+}();
+// ============================================================
+// FF v4.7 — Backup/Restore + Cool-downs wiring
+// ============================================================
+function switchRuleModalTab(type) {
+    document.querySelectorAll(".add-rule-tab").forEach(b => {
+        if (b.getAttribute("data-ruletype") === type) b.classList.add("act");
+        else b.classList.remove("act");
+    });
+    document.querySelectorAll(".add-form-pane").forEach(p => p.style.display = "none");
+    const pane = document.getElementById(`add-form-${type}`);
+    if (pane) pane.style.display = "block";
+}
+// Legacy cooldown helpers removed in favor of integrated checkboxes
+
+if ($("btn-export")) $("btn-export").addEventListener("click", async () => {
+    const r = await msg("BACKUP_EXPORT");
+    if (!r || !r.ok) return toast("Export failed", "err");
+    const blob = new Blob([JSON.stringify(r.payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "focusflow-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("Backup downloaded", "ok");
+});
+if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!confirm("Restoring will REPLACE all current data. Continue?")) {
+        e.target.value = "";
+        return;
+    }
+    try {
+        const text = await file.text();
+        const payload = JSON.parse(text);
+        const r = await msg("BACKUP_IMPORT", { payload });
+        if (r && r.ok) { toast("Restored — reloading…", "ok"); setTimeout(() => location.reload(), 800); }
+        else toast("Restore failed", "err");
+    } catch (err) {
+        toast("Invalid JSON file", "err");
+    }
+    e.target.value = "";
+});
+
+// =====================================================================
+// FocusFlow v6.12 — Structural UI patch (additive, runs after main init)
+//   1. Preset Builder card replaces legacy Work/Break/Long/Cycles inputs
+//      in the Focus Mode panel. Inputs arranged 2x2:
+//         [ Work Time | Break Time ]
+//         [ Long Break | Cycles    ]
+//   2. Site Manager split into 3 pill tabs:
+//         Smart Presets & Categories | Site List | Advanced Tweaks
+//   3. Mid-flight lockdown: Preset Builder is disabled when a focus
+//      session is active (focusState.active === true).
+//   4. Study Goals card relocated from right column → bottom of left
+//      column (under Start Focus card).
+//   5. Custom New Tab Page is OFF by default (handled in newtab.js +
+//      tog-newtab default flip in this file).
+// =====================================================================
+(function ffV612() {
+    "use strict";
+    if (window.__ffV612Loaded) return;
+    window.__ffV612Loaded = true;
+
+    const $$ = (id) => document.getElementById(id);
+
+    const DEFAULT_PRESETS = [
+        { id: "pomodoro", emoji: "🍅", name: "Pomodoro", work: 25, brk: 5, long: 15, longBrk: 15, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"], notify: true, autoStart: true },
+        { id: "deep-work", emoji: "🧠", name: "Deep Work", work: 90, brk: 15, long: 30, longBrk: 30, cycles: 2, strict: false, cats: ["distraction", "communication", "uncategorized"], blockCats: ["distraction", "communication", "uncategorized"], notify: true, autoStart: true },
+        { id: "short-sprint", emoji: "⚡", name: "Short Sprint", work: 15, brk: 3, long: 10, longBrk: 10, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"], notify: true, autoStart: true },
+        { id: "custom", emoji: "⚙️", name: "Custom", work: 25, brk: 5, long: 15, longBrk: 15, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"], notify: true, autoStart: true },
+    ];
+    const CATS = [
+        { v: "distraction", l: "⚡ Distraction" },
+        { v: "communication", l: "💬 Communication" },
+        { v: "uncategorized", l: "❓ Uncategorized" },
+        { v: "productivity", l: "💻 Productivity" },
+        { v: "learning", l: "📚 Learning" },
+    ];
+
+    async function loadStore() {
+        try {
+            const localRes = await gLocal(["focusPresets"]);
+            const syncRes = await gSync(["settings"]);
+            const presetsList = localRes.focusPresets;
+            const activeId = (syncRes.settings && syncRes.settings.activePresetId) || "pomodoro";
+            
+            if (Array.isArray(presetsList) && presetsList.length) {
+                presetsList.forEach(item => {
+                    if (item.autoStart === undefined) item.autoStart = true;
+                    if (item.long !== undefined && item.longBrk === undefined) item.longBrk = item.long;
+                    if (item.longBrk !== undefined && item.long === undefined) item.long = item.longBrk;
+                    if (item.cats !== undefined && item.blockCats === undefined) item.blockCats = item.cats;
+                    if (item.blockCats !== undefined && item.cats === undefined) item.cats = item.blockCats;
+                });
+                if (!presetsList.some(x => x.id === "custom")) {
+                    presetsList.push({ id: "custom", emoji: "⚙️", name: "Custom", work: 25, brk: 5, long: 15, longBrk: 15, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"] });
+                }
+                return { list: presetsList, activeId, editingId: "pomodoro" };
+            }
+        } catch (_) { }
+        return { list: DEFAULT_PRESETS.map((p) => ({ ...p })), activeId: "pomodoro", editingId: "pomodoro" };
+    }
+    function saveStore(s) {
+        sLocal({ focusPresets: s.list });
+        gSync(["settings"]).then(res => {
+            const syncObj = res.settings || {};
+            syncObj.activePresetId = s.activeId;
+            sSync({ settings: syncObj });
+        }).catch(() => {});
+    }
+
+    async function syncPresetsToSW(s) {
+        if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+            await new Promise(r => chrome.runtime.sendMessage({ type: "PRESETS_SAVE", presets: s.list }, r));
+            await new Promise(r => chrome.runtime.sendMessage({ type: "PRESETS_SET_ACTIVE", id: s.activeId }, r));
+        }
+    }
+
+    // ---------- Preset Builder Redesign ------------------------------
+    async function buildPresetBuilder() {
+        const store = await loadStore();
+        let state = store;
+
+        // Load manual sync settings and merge into custom preset before rendering
+        try {
+            const syncObj = (await gSync(["settings"])).settings || {};
+            const customPreset = state.list.find(x => x.id === "custom");
+            if (customPreset) {
+                customPreset.work = syncObj.focusWork ?? 25;
+                customPreset.brk = syncObj.focusBreak ?? 5;
+                customPreset.long = syncObj.focusLongBreak ?? 15;
+                customPreset.longBrk = syncObj.focusLongBreak ?? 15;
+                customPreset.cycles = syncObj.focusCycles ?? 4;
+                customPreset.cats = syncObj.focusBlockCats || ["distraction"];
+                customPreset.blockCats = syncObj.focusBlockCats || ["distraction"];
+                saveStore(state);
+            }
+        } catch (_) { }
+
+        function getEditing() {
+            return state.list.find((p) => p.id === state.editingId) || state.list[0];
+        }
+
+        function syncHiddenInputs() {
+            const a = state.list.find((p) => p.id === state.activeId) || state.list[0];
+            const sw = $$("sw");
+            const sb = $$("sb");
+            const sl = $$("sl");
+            const sc = $$("sc");
+            if (sw) sw.value = a.work;
+            if (sb) sb.value = a.brk;
+            if (sl) sl.value = a.long;
+            if (sc) sc.value = a.cycles;
+        }
+
+        function renderCards() {
+            const switchesEl = $$("preset-quick-switches");
+            if (!switchesEl) return;
+            switchesEl.innerHTML = "";
+
+            state.list.forEach((p) => {
+                const isActive = p.id === state.activeId;
+
+                const card = document.createElement("div");
+                card.className = "preset-card" + (isActive ? " is-active" : "");
+                card.style.cssText = `
+          background: var(--bg3);
+          border: 1px solid ${isActive ? 'var(--green)' : 'var(--bd2)'};
+          box-shadow: ${isActive ? '0 0 8px rgba(5, 213, 129, 0.15)' : 'none'};
+          border-radius: 12px;
+          padding: 14px 12px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          text-align: center;
+        `;
+
+                const emojiOrIcon = p.id === "custom"
+                    ? `<svg viewBox="0 0 20 20" fill="currentColor" style="width:24px; height:24px; color:var(--tx2); margin-bottom: 6px;"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>`
+                    : `<div style="font-size: 24px; margin-bottom: 6px;">${p.emoji}</div>`;
+
+                card.innerHTML = `
+          ${emojiOrIcon}
+          <div style="font-size: 13px; font-weight: 800; color: var(--tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;">${p.name}</div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--tx2); margin-top: 2px;">${p.work}m · ${p.brk}m · ${p.cycles || 4} 🔄</div>
+          
+          <div class="preset-card-actions" style="display: flex; gap: 8px; margin-top: 10px; width: 100%; justify-content: center;">
+            <button class="preset-play-btn" title="Quick Start" style="
+              background: var(--green-bg);
+              border: 1px solid var(--green-bd);
+              color: var(--green);
+              width: 28px;
+              height: 28px;
+              border-radius: 8px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 11px;
+              transition: all 0.2s;
+            ">▶</button>
+            <button class="preset-edit-btn" title="Edit Settings" style="
+              background: var(--bg4);
+              border: 1px solid var(--bd2);
+              color: var(--tx2);
+              width: 28px;
+              height: 28px;
+              border-radius: 8px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 11px;
+              transition: all 0.2s;
+            ">✎</button>
+          </div>
+        `;
+
+                // Click main card to select
+                card.addEventListener("click", (e) => {
+                    if (e.target.closest(".preset-card-actions")) return;
+                    if (window.__ffV612Locked) return;
+
+                    state.activeId = p.id;
+                    saveStore(state);
+                    renderAll();
+
+                    syncPresetsToSW(state).then(() => {
+                        const btn = document.querySelector("#btn-save-focus");
+                        if (btn) btn.click();
+                        if (typeof loadFocusUI === "function") loadFocusUI();
+                        if (typeof toast === "function") toast(`Activated preset: ${p.name}`, "ok");
+                    });
+                });
+
+                // Click play button to select and start focus
+                const playBtn = card.querySelector(".preset-play-btn");
+                playBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    if (window.__ffV612Locked) return;
+
+                    state.activeId = p.id;
+                    saveStore(state);
+                    renderAll();
+
+                    syncPresetsToSW(state).then(() => {
+                        const btnSave = document.querySelector("#btn-save-focus");
+                        if (btnSave) btnSave.click();
+
+                        if (typeof loadFocusUI === "function") loadFocusUI();
+
+                        const fsBtn = document.getElementById("btn-fs");
+                        if (fsBtn) fsBtn.click();
+                    });
+                });
+
+                // Click edit button to open modal with PIN prompt if enabled
+                const editBtn = card.querySelector(".preset-edit-btn");
+                editBtn.addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    if (window.__ffV612Locked) return;
+
+                    const ok = await promptPinIfEnabled("lockFocusPresets");
+                    if (ok) showEditPresetModal(p.id);
+                });
+
+                switchesEl.appendChild(card);
+            });
+        }
+
+        function showEditPresetModal(presetId) {
+            const old = document.getElementById("ff-preset-edit-modal");
+            if (old) old.remove();
+
+            const p = state.list.find((x) => x.id === presetId);
+            if (!p) return;
+
+            const modalHeaderIcon = p.id === "custom"
+                ? `<svg viewBox="0 0 20 20" fill="currentColor" style="width:24px; height:24px; color:var(--tx);"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>`
+                : `<span style="font-size:24px;">${p.emoji}</span>`;
+
+            const overlay = document.createElement("div");
+            overlay.id = "ff-preset-edit-modal";
+            overlay.className = "overlay";
+            overlay.innerHTML = `
+        <div class="card" style="width:100%; max-width:460px; padding:32px; display:flex; flex-direction:column; gap:20px; max-height: 90vh; overflow-y: auto;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:20px; font-weight:800; color:var(--tx); display:flex; align-items:center; gap:10px;">
+              ${modalHeaderIcon}
+              <span>Edit Preset</span>
+            </div>
+            <button id="ep-close" style="background:none; border:none; color:var(--tx3); font-size:20px; cursor:pointer; padding:4px;">✕</button>
+          </div>
+          
+          <div class="srow">
+            <label class="slbl">Preset Name</label>
+            <input type="text" id="ep-name" class="inp" style="width:100%" value="${p.name}"/>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="srow">
+              <label class="slbl">Work Time (min)</label>
+              <input type="number" id="ep-work" class="num inp" min="1" max="180" style="width:100%" value="${p.work}"/>
+            </div>
+            <div class="srow">
+              <label class="slbl">Break Time (min)</label>
+              <input type="number" id="ep-brk" class="num inp" min="0" max="60" style="width:100%" value="${p.brk}"/>
+            </div>
+            <div class="srow">
+              <label class="slbl">Long Break (min)</label>
+              <input type="number" id="ep-long" class="num inp" min="0" max="120" style="width:100%" value="${p.long}"/>
+            </div>
+            <div class="srow">
+              <label class="slbl">Cycles</label>
+              <input type="number" id="ep-cyc" class="num inp" min="1" max="12" style="width:100%" value="${p.cycles}"/>
+            </div>
+          </div>
+
+          <div class="trow" style="padding:16px 0; border-top:1px solid var(--bd); border-bottom:1px solid var(--bd);">
+            <div style="flex:1;">
+              <div class="tlbl" style="font-size:14px; font-weight:700;">🔐 Strict Allowlist Mode</div>
+              <div class="tdesc" style="font-size:12px; color:var(--tx2); margin-top:2px;">Block <em>everything</em> except your Allowlist. Categories below will be ignored.</div>
+            </div>
+            <label class="tog">
+              <input type="checkbox" id="ep-strict" ${p.strict ? 'checked' : ''}/>
+              <span class="ttrack"></span>
+            </label>
+          </div>
+
+          <div class="trow" style="padding:16px 0; border-top:none; border-bottom:1px solid var(--bd); margin-top:-20px;">
+            <div style="flex:1;">
+              <div class="tlbl" style="font-size:14px; font-weight:700;">🔔 Enable Notifications</div>
+              <div class="tdesc" style="font-size:12px; color:var(--tx2); margin-top:2px;">Receive push alerts when focus periods or breaks end.</div>
+            </div>
+            <label class="tog">
+              <input type="checkbox" id="ep-notify" ${p.notify !== false ? 'checked' : ''}/>
+              <span class="ttrack"></span>
+            </label>
+          </div>
+
+          <div class="trow" style="padding:16px 0; border-top:none; border-bottom:1px solid var(--bd); margin-top:-20px;">
+            <div style="flex:1;">
+              <div class="tlbl" style="font-size:14px; font-weight:700;">🔄 Auto-Start Next Cycle</div>
+              <div class="tdesc" style="font-size:12px; color:var(--tx2); margin-top:2px;">Automatically transition to the next work cycle or break.</div>
+            </div>
+            <label class="tog">
+              <input type="checkbox" id="ep-autostart" ${p.autoStart ? 'checked' : ''}/>
+              <span class="ttrack"></span>
+            </label>
+          </div>
+
+          <div id="ep-cats-section" style="display: ${p.strict ? 'none' : 'block'};">
+            <div class="slbl" style="margin-bottom:10px;">Categories to Block during focus</div>
+            <div id="ep-cats-grid" class="c-checkbox-group" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              ${CATS.map(c => {
+                const checked = p.cats.includes(c.v);
+                return `
+                  <label class="c-checkbox-lbl" style="padding:10px; font-size:13px; font-weight:700; margin:0;">
+                    <input type="checkbox" value="${c.v}" ${checked ? 'checked' : ''}/>
+                    <span>${c.l}</span>
+                  </label>
+                `;
+            }).join("")}
+            </div>
+          </div>
+
+          <div style="display:flex; gap:12px; margin-top:8px;">
+            <button class="bs" id="ep-cancel" style="flex:1; padding:14px;">Cancel</button>
+            <button class="bp" id="ep-save" style="flex:1; padding:14px; font-size:14px;">✓ Save Changes</button>
+          </div>
+        </div>
+      `;
+            document.body.appendChild(overlay);
+
+            const strictCheckbox = overlay.querySelector("#ep-strict");
+            const catsSection = overlay.querySelector("#ep-cats-section");
+
+            strictCheckbox.addEventListener("change", () => {
+                catsSection.style.display = strictCheckbox.checked ? "none" : "block";
+            });
+
+            overlay.querySelector("#ep-close").addEventListener("click", () => overlay.remove());
+            overlay.querySelector("#ep-cancel").addEventListener("click", () => overlay.remove());
+
+            overlay.querySelector("#ep-save").addEventListener("click", async () => {
+                const nameVal = overlay.querySelector("#ep-name").value.trim() || p.name;
+                const workVal = Math.max(1, Math.min(180, parseInt(overlay.querySelector("#ep-work").value, 10) || 25));
+                const brkInputVal = parseInt(overlay.querySelector("#ep-brk").value, 10);
+                const brkVal = Math.max(0, Math.min(60, isNaN(brkInputVal) ? 5 : brkInputVal));
+                const longInputVal = parseInt(overlay.querySelector("#ep-long").value, 10);
+                const longVal = Math.max(0, Math.min(120, isNaN(longInputVal) ? 15 : longInputVal));
+                const cycVal = Math.max(1, Math.min(12, parseInt(overlay.querySelector("#ep-cyc").value, 10) || 4));
+                const notifyVal = overlay.querySelector("#ep-notify").checked;
+                const autoStartVal = overlay.querySelector("#ep-autostart").checked;
+
+                let strictVal = strictCheckbox.checked;
+                if (strictVal) {
+                    // Gate: require at least 1 site in allowList before enabling strict mode
+                    const _al = await gLocal(["allowList"]);
+                    const _allowArr = _al.allowList || [];
+                    if (_allowArr.length === 0) {
+                        strictCheckbox.checked = false;
+                        // Show modal to add allow sites
+                        showStrictAllowModal(state, () => p, saveStore, () => {
+                            // callback
+                            p.strict = true;
+                            p.name = nameVal;
+                            p.work = workVal;
+                            p.brk = brkVal;
+                            p.long = longVal;
+                            p.longBrk = longVal;
+                            p.cycles = cycVal;
+                            p.notify = notifyVal;
+                            p.autoStart = autoStartVal;
+                            p.cats = []; // ignore cats in strict
+                            p.blockCats = [];
+                            saveStore(state);
+                            renderAll();
+                            if (p.id === state.activeId) {
+                                syncHiddenInputs();
+                                const btn = document.querySelector("#btn-save-focus");
+                                if (btn) btn.click();
+                                if (typeof loadFocusUI === "function") loadFocusUI();
+                            }
+                            overlay.remove();
+                        });
+                        return;
+                    }
+                }
+
+                // Gather categories
+                const checkedCats = Array.from(overlay.querySelectorAll("#ep-cats-grid input:checked")).map((cb) => cb.value);
+
+                p.name = nameVal;
+                p.work = workVal;
+                p.brk = brkVal;
+                p.long = longVal;
+                p.longBrk = longVal;
+                p.cycles = cycVal;
+                p.strict = strictVal;
+                p.notify = notifyVal;
+                p.autoStart = autoStartVal;
+                p.cats = strictVal ? [] : checkedCats;
+                p.blockCats = strictVal ? [] : checkedCats;
+
+                // Bidirectional sync: if this is the Custom preset, save directly to chrome settings!
+                if (p.id === "custom") {
+                    try {
+                        const syncObj = (await gSync(["settings"])).settings || {};
+                        syncObj.focusWork = workVal;
+                        syncObj.focusBreak = brkVal;
+                        syncObj.focusLongBreak = longVal;
+                        syncObj.focusCycles = cycVal;
+                        syncObj.focusBlockCats = checkedCats;
+                        await sSync({ settings: syncObj });
+                    } catch (_) { }
+                }
+
+                saveStore(state);
+                renderAll();
+
+                await syncPresetsToSW(state);
+
+                if (p.id === state.activeId) {
+                    syncHiddenInputs();
+                    const btn = document.querySelector("#btn-save-focus");
+                    if (btn) btn.click();
+                    if (typeof loadFocusUI === "function") loadFocusUI();
+                }
+
+                overlay.remove();
+                if (typeof toast === "function") toast("Preset saved successfully!", "ok");
+            });
+        }
+
+        function renderAll() {
+            renderCards();
+            syncHiddenInputs();
+            applyLockUI();
+        }
+
+        function applyLockUI() {
+            const locked = !!window.__ffV612Locked;
+            const switches = $$("preset-quick-switches");
+            if (switches) {
+                switches.style.opacity = locked ? "0.4" : "";
+                switches.style.pointerEvents = locked ? "none" : "";
+            }
+        }
+
+        window.__ffV612ApplyLock = applyLockUI;
+        renderAll();
+    }
+
+    // ---------- Move Study Goals to bottom of Start Focus panel -------
+    function relocateStudyGoals() {
+        return;
+    }
+
+    // ---------- Site Manager → 3 pill tabs ---------------------------
+    function buildSiteManagerTabs() {
+        const sm = $$("tab-sitemanager");
+        if (!sm || sm.dataset.ffV612 === "1") return;
+        sm.dataset.ffV612 = "1";
+
+        const cards = Array.from(sm.querySelectorAll(":scope > .card"));
+        if (cards.length < 2) return;
+
+        const ruleCard = cards[0]; // Rule manager (block/allow)
+        const filterCard = cards[1]; // Smart presets + categories
+
+        // Build tab nav
+        const nav = document.createElement("div");
+        nav.className = "sm-tabs";
+        nav.innerHTML = `
+      <button type="button" class="sm-tab is-active" data-pane="sites">Site List</button>
+      <button type="button" class="sm-tab" data-pane="presets">Smart Presets & Categories</button>
+      <button type="button" class="sm-tab" data-pane="tweaks">Advanced Tweaks</button>
+    `;
+        const ph = sm.querySelector(".ph");
+        ph.parentNode.insertBefore(nav, ph.nextSibling);
+
+        // Build panes
+        const paneS = document.createElement("div"); paneS.className = "sm-pane is-active"; paneS.id = "sm-pane-sites";
+        const paneP = document.createElement("div"); paneP.className = "sm-pane"; paneP.id = "sm-pane-presets";
+        const paneT = document.createElement("div"); paneT.className = "sm-pane"; paneT.id = "sm-pane-tweaks";
+        sm.appendChild(paneP); sm.appendChild(paneS); sm.appendChild(paneT);
+
+        // Move existing cards: Smart Presets card → presets pane, Rule Manager → sites pane.
+        paneP.appendChild(filterCard);
+        paneS.appendChild(ruleCard);
+
+        // Tweaks pane gets a host for the granular blocks UI (existing
+        // renderGranularBlocksUI() targets #tab-sitemanager — give it a hook).
+        paneT.innerHTML = `
+      <div class="card">
+        <div class="ctit">⚙️ Advanced Site Tweaks</div>
+        <p style="font-size:13px;color:var(--tx2);margin:-12px 0 16px">Hide distracting UI elements on supported sites (YouTube Shorts, Reddit feed, X timeline, etc.).</p>
+        <div id="ff-granular-host"></div>
+      </div>
+    `;
+
+        // Wire tab switching
+        nav.querySelectorAll(".sm-tab").forEach((b) => {
+            b.addEventListener("click", () => {
+                nav.querySelectorAll(".sm-tab").forEach((x) => x.classList.remove("is-active"));
+                b.classList.add("is-active");
+                sm.querySelectorAll(".sm-pane").forEach((p) => p.classList.remove("is-active"));
+                const pane = sm.querySelector("#sm-pane-" + b.dataset.pane);
+                if (pane) pane.classList.add("is-active");
+            });
+        });
+
+        // Re-target existing granular UI: monkey-patch the host.
+        if (typeof renderGranularBlocksUI === "function") {
+            const orig = renderGranularBlocksUI;
+            window.renderGranularBlocksUI = async function () {
+                const host = document.getElementById("ff-granular-host");
+                if (host && !document.getElementById("granular-ui-wrapper")) {
+                    // Trick the original function by giving it a target inside our pane.
+                    // Easiest: temporarily move tab-sitemanager's id pointer.
+                }
+                return orig.apply(this, arguments);
+            };
+        }
+    }
+
+    // ---------- Mid-flight lockdown polling --------------------------
+    async function pollFocusState() {
+        try {
+            const r = await new Promise((res) => {
+                try { chrome.runtime.sendMessage({ type: "FOCUS_GET_STATE" }, (x) => { void chrome.runtime.lastError; res(x || null); }); }
+                catch (_) { res(null); }
+            });
+            const active = !!(r && r.focusState && r.focusState.active);
+            if (active !== window.__ffV612Locked) {
+                window.__ffV612Locked = active;
+                if (typeof window.__ffV612ApplyLock === "function") window.__ffV612ApplyLock();
+            }
+        } catch (_) { }
+    }
+
+
+    // ---------- Strict Mode Allow-Site Modal ---------------------------
+    function showStrictAllowModal(state, getEditing, saveStore, renderAll) {
+        // Remove old modal if re-opened
+        const old = document.getElementById("ff-strict-allow-modal");
+        if (old) old.remove();
+
+        const overlay = document.createElement("div");
+        overlay.id = "ff-strict-allow-modal";
+        overlay.className = "overlay";
+        overlay.innerHTML = `
+      <div class="card" style="width:100%;max-width:440px;padding:32px;text-align:center">
+        <div style="font-size:2.5rem;margin-bottom:12px">🔐</div>
+        <div style="font-size:20px;font-weight:800;margin-bottom:8px;color:var(--tx)">Strict Allowlist Mode</div>
+        <div style="font-size:14px;color:var(--tx2);margin-bottom:24px;line-height:1.6">
+          Strict mode blocks <strong>everything</strong> except sites in your Allowlist.<br>
+          Add at least one site to your Allowlist to continue.
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:20px">
+          <div style="flex:1;display:flex;background:var(--bg3);border:1px solid var(--bd2);border-radius:12px;overflow:hidden">
+            <span style="padding:12px 14px;background:var(--bg4);color:var(--tx3);font-weight:600;font-size:13px;border-right:1px solid var(--bd2)">https://</span>
+            <input type="text" id="ff-strict-domain-inp" class="inp" placeholder="pw.live" autocomplete="off" style="border:none;background:transparent;border-radius:0;padding-left:12px;font-size:14px"/>
+          </div>
+        </div>
+        <div id="ff-strict-added-list" style="display:none;text-align:left;margin-bottom:16px;padding:12px 16px;background:var(--bg3);border:1px solid var(--bd);border-radius:12px;max-height:120px;overflow-y:auto"></div>
+        <div style="display:flex;gap:12px">
+          <button class="bs" id="ff-strict-cancel" style="flex:1;padding:14px">Cancel</button>
+          <button class="bp" id="ff-strict-add" style="flex:1;padding:14px;font-size:14px">+ Add Site</button>
+        </div>
+        <button class="bp" id="ff-strict-enable" style="display:none;width:100%;margin-top:12px;padding:14px;font-size:14px;background:var(--green);color:#000">✓ Enable Strict Mode</button>
+      </div>
+    `;
+        document.body.appendChild(overlay);
+
+        const inp = document.getElementById("ff-strict-domain-inp");
+        const addedList = document.getElementById("ff-strict-added-list");
+        let addedDomains = [];
+
+        function renderAdded() {
+            if (addedDomains.length === 0) {
+                addedList.style.display = "none";
+                document.getElementById("ff-strict-enable").style.display = "none";
+                return;
+            }
+            addedList.style.display = "block";
+            document.getElementById("ff-strict-enable").style.display = "block";
+            addedList.innerHTML = addedDomains.map((d, i) =>
+                `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;${i > 0 ? 'border-top:1px solid var(--bd);' : ''}">
+          <span style="font-size:13px;font-weight:700;color:var(--green)">${d}</span>
+          <button class="ff-strict-rm" data-idx="${i}" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:14px;padding:2px 6px">✕</button>
+        </div>`
+            ).join("");
+            addedList.querySelectorAll(".ff-strict-rm").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    addedDomains.splice(parseInt(btn.dataset.idx), 1);
+                    renderAdded();
+                });
+            });
+        }
+
+        inp.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") document.getElementById("ff-strict-add").click();
+        });
+
+        document.getElementById("ff-strict-add").addEventListener("click", () => {
+            const raw = inp.value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+            if (!raw) return;
+            if (addedDomains.includes(raw)) { inp.value = ""; return; }
+            addedDomains.push(raw);
+            inp.value = "";
+            renderAdded();
+            inp.focus();
+        });
+
+        document.getElementById("ff-strict-cancel").addEventListener("click", () => {
+            overlay.remove();
+        });
+
+        document.getElementById("ff-strict-enable").addEventListener("click", async () => {
+            if (addedDomains.length === 0) return;
+            // Save added domains to allowList in chrome.storage.local
+            const _al = await gLocal(["allowList"]);
+            const _existing = _al.allowList || [];
+            const _merged = [...new Set([..._existing, ...addedDomains])];
+            await sLocal({ allowList: _merged });
+            await msg("TRIGGER_DNR_UPDATE");
+            // Update the module-level allowList so renderCombined picks it up
+            if (typeof allowList !== "undefined") {
+                allowList.length = 0;
+                _merged.forEach(d => allowList.push(d));
+            }
+            // Enable strict on the editing preset
+            const ed = getEditing();
+            ed.strict = true;
+            saveStore(state);
+            await syncPresetsToSW(state);
+            const strictCb = document.getElementById("pb-strict");
+            if (strictCb) strictCb.checked = true;
+            renderAll();
+            // Re-render the rule manager to show new allow entries
+            if (typeof renderCombined === "function") renderCombined();
+            overlay.remove();
+            if (typeof toast === "function") toast(addedDomains.length + " site(s) added to Allowlist — Strict mode enabled", "ok");
+        });
+
+        setTimeout(() => inp.focus(), 50);
+    }
+
+    function init() {
+        buildPresetBuilder();
+        relocateStudyGoals();
+        buildSiteManagerTabs();
+        pollFocusState();
+        setInterval(pollFocusState, 2000);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        // dashboard.js itself runs after DOMContentLoaded; defer one tick so the
+        // main init() finishes wiring legacy listeners first.
+        setTimeout(init, 0);
+    }
+})();
+
+// =====================================================================
+// FF v6.16 — formerly dashboard/v613-patch.js, merged in to drop the
+// extra <script> file. Original v6.13 notes:
+//   1. Site Manager: Advanced Tweaks UI ONLY shows inside its own pane.
+//   2. Site Manager: Move "Cool-down Sites" cards
+//      from Settings → Site List pane.
+//   3. Focus Mode: Clean 2-column responsive grid.
+//   4. Preset Builder polish.
+// =====================================================================
+(function ffV613Inline() {
+    "use strict";
+    if (window.__ffV613Loaded) return;
+    window.__ffV613Loaded = true;
+
+    const css = `
+    #tab-focus .focus-layout {
+      display: grid !important;
+      grid-template-columns: 1.8fr 1fr !important;
+      gap: 24px !important;
+      align-items: stretch !important;
+    }
+    #tab-focus .focus-layout > .ff-col {
+      display: flex; flex-direction: column; gap: 24px; min-width: 0; height: 100%;
+    }
+    #tab-focus .focus-layout .card { margin: 0 !important; }
+    #tab-focus .focus-layout #history-list { flex: 1; overflow-y: auto; max-height: 350px !important; padding-right: 6px; }
+    #tab-focus .focus-layout .ff-history-card {
+      flex: 1 !important; height: auto !important; min-height: 320px !important; display: flex; flex-direction: column;
+    }
+    #tab-focus .focus-layout #focus-allowlist-container {
+      max-height: 280px !important; overflow-y: auto; padding-right: 6px;
+    }
+    #tab-focus .focus-layout #history-list::-webkit-scrollbar,
+    #tab-focus .focus-layout #focus-allowlist-container::-webkit-scrollbar { width: 6px; }
+    #tab-focus .focus-layout #history-list::-webkit-scrollbar-track,
+    #tab-focus .focus-layout #focus-allowlist-container::-webkit-scrollbar-track { background: transparent; }
+    #tab-focus .focus-layout #history-list::-webkit-scrollbar-thumb,
+    #tab-focus .focus-layout #focus-allowlist-container::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 10px; }
+    @media (max-width: 1024px) {
+      #tab-focus .focus-layout { grid-template-columns: 1fr !important; }
+    }
+    #pb-cards { gap: 14px !important; margin-bottom: 24px !important; }
+    .pb-card {
+      padding: 18px 16px !important;
+      gap: 6px !important;
+      border-radius: 16px !important;
+      border: 1px solid var(--bd2) !important;
+      background: var(--bg3) !important;
+      box-shadow: var(--shadow-sm) !important;
+    }
+    .pb-card:hover:not(:disabled) {
+      transform: translateY(-2px) !important;
+      border-color: var(--bd3) !important;
+      background: var(--bg4) !important;
+    }
+    .pb-card.is-active {
+      border-color: var(--green) !important;
+      background: var(--green-bg) !important;
+      box-shadow: 0 0 0 1px var(--green-bd), 0 8px 24px rgba(5,213,129,.12) !important;
+    }
+    .pb-card.is-editing {
+      box-shadow: 0 0 0 2px var(--blue) !important;
+      border-color: var(--blue) !important;
+    }
+    .pb-card-emoji { font-size: 26px !important; line-height: 1 !important; margin-bottom: 2px !important; }
+    .pb-card-name {
+      font-family: 'Manrope', system-ui, sans-serif !important;
+      font-weight: 800 !important;
+      font-size: 16px !important;
+      letter-spacing: -0.02em !important;
+      color: var(--tx) !important;
+    }
+    .pb-card-meta {
+      font-family: 'Manrope', system-ui, sans-serif !important;
+      font-size: 12px !important;
+      font-weight: 600 !important;
+      color: var(--tx2) !important;
+      letter-spacing: -0.01em !important;
+    }
+    .pb-badge {
+      padding: 3px 8px !important;
+      border-radius: 99px !important;
+      font-size: 9px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+    }
+    .pb-badge-active {
+      background: var(--green-bg) !important;
+      color: var(--green) !important;
+      border: 1px solid var(--green-bd) !important;
+    }
+    .pb-badge-strict {
+      background: var(--amber-bg) !important;
+      color: var(--amber) !important;
+      border: 1px solid var(--amber-bd) !important;
+    }
+    .pb-editor {
+      background: rgba(22, 22, 24, 0.45) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border: 1px solid var(--bd) !important;
+      border-radius: 18px !important;
+      padding: 24px !important;
+      gap: 20px !important;
+      box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.02) !important;
+    }
+    .pb-grid { grid-template-columns: 1fr 1fr !important; gap: 16px !important; }
+    .pb-field label {
+      font-family: 'Manrope', system-ui, sans-serif !important;
+      font-size: 11px !important;
+      font-weight: 800 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.08em !important;
+      color: var(--tx3) !important;
+      margin-bottom: 6px !important;
+    }
+    .pb-field .num {
+      width: 100% !important;
+      background: var(--bg3) !important;
+      border: 1px solid var(--bd2) !important;
+      border-radius: 12px !important;
+      padding: 12px 16px !important;
+      color: var(--tx) !important;
+      font-size: 16px !important;
+      font-weight: 700 !important;
+      text-align: center !important;
+      font-family: inherit !important;
+      transition: var(--trans) !important;
+    }
+    .pb-field .num:focus {
+      border-color: var(--green) !important;
+      box-shadow: 0 0 0 3px var(--green-bg) !important;
+      background: var(--bg4) !important;
+    }
+    .pb-strict-row {
+      padding-top: 18px !important;
+      border-top: 1px solid var(--bd) !important;
+    }
+    .pb-strict-row .tlbl {
+      font-size: 14px !important;
+      font-weight: 700 !important;
+      color: var(--tx) !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+    }
+    .pb-strict-row .tdesc {
+      font-size: 12px !important;
+      color: var(--tx2) !important;
+      line-height: 1.5 !important;
+      margin-top: 4px !important;
+    }
+    .pb-cats-title {
+      font-family: 'Manrope', system-ui, sans-serif !important;
+      font-size: 11px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      color: var(--tx3) !important;
+      margin-bottom: 10px !important;
+    }
+    .pb-cats { gap: 10px !important; }
+    .pb-cat-row {
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      padding: 12px 16px !important;
+      border: 1px solid var(--bd) !important;
+      background: var(--bg3) !important;
+      border-radius: 12px !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      color: var(--tx) !important;
+      cursor: pointer !important;
+      transition: var(--trans) !important;
+    }
+    .pb-cat-row:hover:not(.is-disabled) {
+      border-color: var(--bd3) !important;
+      background: var(--bg4) !important;
+      transform: translateY(-1px) !important;
+    }
+    .pb-cat-row:has(input:checked) {
+      background: var(--green-bg) !important;
+      border-color: var(--green-bd) !important;
+      color: var(--green) !important;
+    }
+    .pb-cat-row input[type="checkbox"] {
+      width: 16px !important;
+      height: 16px !important;
+      accent-color: var(--green) !important;
+      cursor: pointer !important;
+    }
+    .pb-actions { display: flex !important; gap: 12px !important; padding-top: 8px !important; }
+    .pb-actions .bp {
+      background: var(--green) !important;
+      color: #0a0a0a !important;
+      font-weight: 800 !important;
+      border-radius: 14px !important;
+      padding: 14px 20px !important;
+      font-size: 14px !important;
+      box-shadow: 0 4px 12px rgba(5,213,129,0.15) !important;
+      transition: var(--trans) !important;
+    }
+    .pb-actions .bp:hover {
+      transform: translateY(-2px) !important;
+      box-shadow: 0 6px 16px rgba(5,213,129,0.25) !important;
+    }
+    .pb-actions .bs {
+      background: var(--bg3) !important;
+      color: var(--tx) !important;
+      border: 1px solid var(--bd2) !important;
+      font-weight: 700 !important;
+      border-radius: 14px !important;
+      padding: 14px 20px !important;
+      font-size: 14px !important;
+      transition: var(--trans) !important;
+    }
+    .pb-actions .bs:hover {
+      background: var(--bg4) !important;
+      border-color: var(--bd3) !important;
+      transform: translateY(-2px) !important;
+    }
+    #tab-sitemanager .sm-pane { display: none !important; }
+    #tab-sitemanager .sm-pane.is-active { display: block !important; }
+    #tab-sitemanager > #granular-ui-wrapper { display: none !important; }
+    #ff-granular-host #granular-blocks-grid {
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+    }
+    #ff-granular-host > #granular-ui-wrapper > div:first-child { display: none !important; }
+    #sm-pane-sites .ff-moved-settings-card { margin-top: 24px; }
+    html.light .pb-editor {
+      background: rgba(255, 255, 255, 0.75) !important;
+      border: 1px solid rgba(0, 0, 0, 0.05) !important;
+      box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.6) !important;
+    }
+  `;
+    const style = document.createElement("style");
+    style.id = "ff-v613-style";
+    style.textContent = css;
+    document.head.appendChild(style);
+
+    function restructureFocusLayout() {
+        return;
+    }
+
+    function fixGranularPlacement() {
+        if (typeof window.renderGranularBlocksUI !== "function") return;
+        if (window.renderGranularBlocksUI.__ffV613Wrapped) return;
+        const orig = window.renderGranularBlocksUI;
+        const wrapped = async function () {
+            const sm = document.getElementById("tab-sitemanager");
+            const host = document.getElementById("ff-granular-host");
+            if (!sm || !host) return orig.apply(this, arguments);
+            // Temporarily swap ids so the legacy renderer's `insertBefore` lands in our host.
+            sm.id = "tab-sitemanager-swap";
+            host.id = "tab-sitemanager";
+            try {
+                await orig.apply(this, arguments);
+            } finally {
+                const swapBack = document.getElementById("tab-sitemanager");
+                if (swapBack) swapBack.id = "ff-granular-host";
+                const orig2 = document.getElementById("tab-sitemanager-swap");
+                if (orig2) orig2.id = "tab-sitemanager";
+            }
+            const stray = document.querySelector("#tab-sitemanager > #granular-ui-wrapper");
+            if (stray) stray.remove();
+        };
+        wrapped.__ffV613Wrapped = true;
+        window.renderGranularBlocksUI = wrapped;
+
+        const stray = document.querySelector("#tab-sitemanager > #granular-ui-wrapper");
+        const host = document.getElementById("ff-granular-host");
+        if (stray && host) host.appendChild(stray);
+    }
+
+    function moveSettingsCardsToSiteManager() {
+        const sitesPane = document.getElementById("sm-pane-sites");
+        if (!sitesPane) return;
+        if (sitesPane.dataset.ffV613Moved === "1") return;
+        const settingsTab = document.getElementById("tab-settings");
+        if (!settingsTab) return;
+        const allCards = Array.from(settingsTab.querySelectorAll(".card"));
+        const cdCard = allCards.find((c) => c.querySelector("#cd-list"));
+        [cdCard].forEach((c) => {
+            if (!c) return;
+            c.classList.add("ff-moved-settings-card");
+            sitesPane.appendChild(c);
+        });
+        sitesPane.dataset.ffV613Moved = "1";
+    }
+
+    function runAll() {
+        restructureFocusLayout();
+        fixGranularPlacement();
+        moveSettingsCardsToSiteManager();
+    }
+
+    function init() {
+        let tries = 0;
+        const t = setInterval(() => {
+            tries++;
+            runAll();
+            const done =
+                document.querySelector("#tab-focus .focus-layout")?.dataset.ffV613 === "1" &&
+                document.getElementById("sm-pane-sites")?.dataset.ffV613Moved === "1";
+            if (done || tries > 30) clearInterval(t);
+        }, 100);
+        document.querySelectorAll('.ni[data-tab="sitemanager"]').forEach((b) => {
+            b.addEventListener("click", () => setTimeout(runAll, 50));
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        setTimeout(init, 100);
+    }
+})();
+
+// =====================================================================
+// FF v6.7 — Scheduled Focus Mode
+// Each schedule: { id, label, days: [0-6], startTime, endTime, enabled }
+// Stored in sync settings.focusSchedules[].
+// The service worker checks schedules in tracker_heartbeat and auto-starts
+// focus mode when the current time matches an enabled schedule.
+// =====================================================================
+(function initFocusSchedules() {
+    "use strict";
+    const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    function uid() {
+        return Math.random().toString(36).slice(2, 10);
+    }
+
+    function renderSchedules(schedules) {
+        const list = document.getElementById("focus-schedules-list");
+        if (!list) return;
+        list.innerHTML = "";
+        if (!schedules || !schedules.length) {
+            list.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 16px; background:rgba(255,255,255,0.01); border:1px dashed var(--bd); border-radius:16px; text-align:center; margin-bottom:8px;">
+          <div style="font-size:24px; margin-bottom:10px; filter:grayscale(0.2); opacity:0.85;">📅</div>
+          <div style="font-size:13px; font-weight:700; color:var(--tx2); margin-bottom:4px;">No Focus Schedules Yet</div>
+          <div style="font-size:11px; color:var(--tx3); max-width:240px; line-height:1.4;">Add a schedule below to automatically start Focus Mode during specific hours.</div>
+        </div>
+      `;
+            return;
+        }
+        schedules.forEach((sched, idx) => {
+            const row = document.createElement("div");
+            row.style.cssText = "display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bd);border-radius:12px;padding:12px 16px;flex-wrap:wrap;";
+            const dayBadges = DAY_LABELS.map((d, i) =>
+                `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:800;${(sched.days || []).includes(i) ? 'background:var(--blue);color:#fff;' : 'background:var(--bg4);color:var(--tx3);'}">${d}</span>`
+            ).join("");
+            row.innerHTML = `
+        <label class="tog" style="flex-shrink:0"><input type="checkbox" class="sched-enabled-cb" data-idx="${idx}" ${sched.enabled !== false ? "checked" : ""}><span class="ttrack"></span></label>
+        <div style="flex:1;min-width:180px;">
+          <div style="font-weight:700;font-size:14px;color:var(--tx)">${sched.label || "Focus Session"}</div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px;">${sched.startTime || "09:00"} – ${sched.endTime || "10:00"}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${dayBadges}</div>
+        </div>
+        <button class="bic edit-sched" data-idx="${idx}" style="width:28px;height:28px;font-size:12px;flex-shrink:0" title="Edit">✎</button>
+        <button class="bic del rm-sched" data-idx="${idx}" style="width:28px;height:28px;font-size:12px;flex-shrink:0" title="Delete">✕</button>
+      `;
+            list.appendChild(row);
+        });
+        list.querySelectorAll(".sched-enabled-cb").forEach(cb => {
+            cb.addEventListener("change", async () => {
+                if (!(await promptPinIfEnabled("lockFocusScheds"))) {
+                    cb.checked = !cb.checked;
+                    return;
+                }
+                const sv = (await gSync(["settings"])).settings || {};
+                const scheds = sv.focusSchedules || [];
+                const i = parseInt(cb.getAttribute("data-idx"));
+                if (scheds[i]) { scheds[i].enabled = cb.checked; await sSync({ settings: { ...sv, focusSchedules: scheds } }); }
+            });
+        });
+        list.querySelectorAll(".edit-sched").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                if (!(await promptPinIfEnabled("lockFocusScheds"))) return;
+                const sv = (await gSync(["settings"])).settings || {};
+                const scheds = sv.focusSchedules || [];
+                openScheduleModal(scheds, parseInt(btn.getAttribute("data-idx")));
+            });
+        });
+        list.querySelectorAll(".rm-sched").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                if (!(await promptPinIfEnabled("lockFocusScheds"))) return;
+                const sv = (await gSync(["settings"])).settings || {};
+                const scheds = sv.focusSchedules || [];
+                scheds.splice(parseInt(btn.getAttribute("data-idx")), 1);
+                await sSync({ settings: { ...sv, focusSchedules: scheds } });
+                renderSchedules(scheds);
+                if (typeof toast === "function") toast("Schedule removed", "ok");
+            });
+        });
+    }
+
+    function openScheduleModal(schedules, editIdx = -1) {
+        const isEdit = editIdx >= 0;
+        const sched = isEdit ? schedules[editIdx] : {};
+
+        const overlay = document.createElement("div");
+        overlay.className = "overlay";
+        overlay.style.zIndex = "9999";
+        const schedDays = sched.days || [1, 2, 3, 4, 5];
+        const DAY_CBS = DAY_LABELS.map((d, i) =>
+            `<label class="nsched-day-lbl" style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;cursor:pointer;padding:6px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg3)"><input type="checkbox" class="nsched-day" value="${i}" ${schedDays.includes(i) ? "checked" : ""}> ${d}</label>`
+        ).join("");
+        overlay.innerHTML = `
+      <div class="card" style="width:100%;max-width:480px;padding:0;display:flex;flex-direction:column;max-height:80vh;overflow:hidden;">
+        <div style="padding:28px 28px 16px;border-bottom:1px solid var(--bd);font-size:20px;font-weight:800;">${isEdit ? "⏰ Edit" : "⏰ Add"} Focus Schedule</div>
+        <div style="padding:20px 28px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:16px;">
+          <div><label class="slbl" style="margin-bottom:6px;display:block">Label</label><input type="text" id="nsched-label" class="inp" placeholder="e.g. Morning Focus" value="${sched.label || ""}" style="width:100%"/></div>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <div style="flex:1"><label class="slbl" style="margin-bottom:6px;display:block">Start</label><input type="time" id="nsched-start" class="inp" value="${sched.startTime || "09:00"}"/></div>
+            <div style="flex:1"><label class="slbl" style="margin-bottom:6px;display:block">End</label><input type="time" id="nsched-end" class="inp" value="${sched.endTime || "10:00"}"/></div>
+          </div>
+          <div>
+            <label class="slbl" style="margin-bottom:8px;display:block">Active Days</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">${DAY_CBS}</div>
+          </div>
+          <div class="pb-strict-row" style="padding-top:16px;">
+            <div>
+              <div class="tlbl" style="font-size:14px">🔐 Strict Allowlist Mode</div>
+              <div class="tdesc">Block <em>everything</em> except your Allowlist. Category checkboxes below are ignored.</div>
+            </div>
+            <label class="tog"><input type="checkbox" id="nsched-strict" ${sched.strict ? "checked" : ""}/><span class="ttrack"></span></label>
+          </div>
+          <div class="pb-cats-section" id="nsched-cats-sec">
+            <div class="pb-cats-title" style="font-size:13px;font-weight:800;color:var(--tx2);text-transform:uppercase;margin-bottom:12px;">Categories to Block</div>
+            <div class="pb-cats" id="nsched-cats" style="display:flex;flex-direction:column;gap:12px;">
+              <label style="display:flex;align-items:center;gap:16px;cursor:pointer;padding:12px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--bg3)"><input type="checkbox" value="distraction" ${!sched.blockCats || sched.blockCats.includes("distraction") ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--green)"/><span style="font-weight:700;font-size:14px">⚡ Distraction</span></label>
+              <label style="display:flex;align-items:center;gap:16px;cursor:pointer;padding:12px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--bg3)"><input type="checkbox" value="communication" ${!sched.blockCats || sched.blockCats.includes("communication") ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--green)"/><span style="font-weight:700;font-size:14px">💬 Communication</span></label>
+              <label style="display:flex;align-items:center;gap:16px;cursor:pointer;padding:12px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--bg3)"><input type="checkbox" value="uncategorized" ${!sched.blockCats || sched.blockCats.includes("uncategorized") ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--green)"/><span style="font-weight:700;font-size:14px">❓ Uncategorized</span></label>
+            </div>
+          </div>
+          <div class="pb-strict-row" style="padding-top:16px;border-top:1px solid var(--bd)">
+            <div>
+              <div class="tlbl" style="font-size:14px">🔔 Pre-Schedule Notification</div>
+              <div class="tdesc">Get notified before the session starts.</div>
+            </div>
+            <select id="nsched-notify-time" class="inp" style="width:140px;padding:6px 12px">
+              <option value="0" ${sched.notifyMinsBefore === 0 ? "selected" : ""}>Disabled</option>
+              <option value="1" ${sched.notifyMinsBefore === 1 ? "selected" : ""}>1 min before</option>
+              <option value="5" ${(sched.notifyMinsBefore === undefined || sched.notifyMinsBefore === 5) ? "selected" : ""}>5 mins before</option>
+              <option value="10" ${sched.notifyMinsBefore === 10 ? "selected" : ""}>10 mins before</option>
+              <option value="15" ${sched.notifyMinsBefore === 15 ? "selected" : ""}>15 mins before</option>
+            </select>
+          </div>
+        </div>
+        <div style="padding:16px 28px 24px;border-top:1px solid var(--bd);display:flex;gap:12px;justify-content:flex-end;">
+          <button class="bs" id="nsched-cancel">Cancel</button>
+          <button class="bp" id="nsched-save">${isEdit ? "Save Changes" : "Add Schedule"}</button>
+        </div>
+      </div>
+    `;
+        document.body.appendChild(overlay);
+
+        const strictTog = overlay.querySelector("#nsched-strict");
+        const catsSec = overlay.querySelector("#nsched-cats-sec");
+        const catsInputs = catsSec.querySelectorAll("input");
+        strictTog.addEventListener("change", () => {
+            if (strictTog.checked) {
+                catsSec.style.opacity = "0.5";
+                catsSec.style.pointerEvents = "none";
+                catsInputs.forEach(cb => cb.disabled = true);
+            } else {
+                catsSec.style.opacity = "1";
+                catsSec.style.pointerEvents = "auto";
+                catsInputs.forEach(cb => cb.disabled = false);
+            }
+        });
+
+        document.getElementById("nsched-cancel").addEventListener("click", () => overlay.remove());
+        document.getElementById("nsched-save").addEventListener("click", async () => {
+            const label = document.getElementById("nsched-label").value.trim() || "Focus Session";
+            const startTime = document.getElementById("nsched-start").value;
+            const endTime = document.getElementById("nsched-end").value;
+            const days = Array.from(overlay.querySelectorAll(".nsched-day:checked")).map(cb => parseInt(cb.value));
+            if (!days.length) { if (typeof toast === "function") toast("Select at least one day", "er"); return; }
+            const strict = document.getElementById("nsched-strict").checked;
+            const cats = Array.from(overlay.querySelectorAll("#nsched-cats input:checked")).map(cb => cb.value);
+            const notify = parseInt(document.getElementById("nsched-notify-time").value) || 0;
+            const sv = (await gSync(["settings"])).settings || {};
+            const scheds = sv.focusSchedules || [];
+            if (isEdit) {
+                scheds[editIdx] = { ...scheds[editIdx], label, days, startTime, endTime, strict, blockCats: cats, notifyMinsBefore: notify };
+            } else {
+                scheds.push({ id: uid(), label, days, startTime, endTime, enabled: true, strict, blockCats: cats, notifyMinsBefore: notify });
+            }
+
+            await sSync({ settings: { ...sv, focusSchedules: scheds } });
+            overlay.remove();
+            renderSchedules(scheds);
+            if (typeof toast === "function") toast(isEdit ? "Schedule updated" : "Schedule added", "ok");
+        });
+
+        // Trigger initial strict mode logic
+        if (strictTog.checked) strictTog.dispatchEvent(new Event("change"));
+    }
+
+    async function init() {
+        const sv = (await gSync(["settings"])).settings || {};
+        renderSchedules(sv.focusSchedules || []);
+        const addBtn = document.getElementById("btn-add-schedule") || document.getElementById("btn-add-sched-shortcut");
+        if (addBtn) {
+            addBtn.addEventListener("click", async () => {
+                if (!(await promptPinIfEnabled("lockFocusScheds"))) return;
+                const sv2 = (await gSync(["settings"])).settings || {};
+                // FF v6.8: 3-schedule cap
+                if ((sv2.focusSchedules || []).length >= 3) { if (typeof toast === "function") toast("You can only have 3 focus schedules.", "er"); return; }
+                openScheduleModal(sv2.focusSchedules || []);
+            });
+        }
+
+        // --- Focus Allowlist Integration ---
+        async function renderFocusAllowlist() {
+            const container = document.getElementById("focus-allowlist-container");
+            if (!container) return;
+            const t = await chrome.storage.local.get(["allowList"]);
+            const list = t.allowList || [];
+            if (!list.length) {
+                container.innerHTML = `<div class="empty"><p style="margin:0; font-size:13px;">No allowed sites yet.</p></div>`;
+                return;
+            }
+            container.innerHTML = list.map(domain => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg3); padding:8px 12px; border-radius:8px; border:1px solid var(--bd);">
+          <span style="font-size:13px; font-weight:600; color:var(--tx); font-family:monospace;">${domain}</span>
+          <button class="bic del btn-del-allow" data-domain="${domain}" style="font-size:12px; opacity:0.6; cursor:pointer; background:none; border:none; color:var(--tx);">✕</button>
+        </div>
+      `).join("");
+
+            container.querySelectorAll(".btn-del-allow").forEach(btn => {
+                btn.addEventListener("click", async function () {
+                    const dom = this.getAttribute("data-domain");
+                    const cur = await chrome.storage.local.get(["allowList"]);
+                    const updated = (cur.allowList || []).filter(x => x !== dom);
+                    await chrome.storage.local.set({ allowList: updated });
+                    renderFocusAllowlist();
+                    if (typeof msg === "function") msg("TRIGGER_DNR_UPDATE");
+                });
+            });
+        }
+
+        renderFocusAllowlist();
+        const btnAllowAdd = document.getElementById("btn-focus-allow-add");
+        if (btnAllowAdd) {
+            btnAllowAdd.addEventListener("click", async () => {
+                const inp = document.getElementById("focus-allow-inp");
+                if (!inp) return;
+                const domain = inp.value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+                if (!domain) { if (typeof toast === "function") toast("Enter a valid domain", "er"); return; }
+                const t = await chrome.storage.local.get(["allowList"]);
+                let list = t.allowList || [];
+                if (list.includes(domain)) {
+                    if (typeof toast === "function") toast(domain + " is already allowed", "er");
+                } else {
+                    list.push(domain);
+                    await chrome.storage.local.set({ allowList: list });
+                    inp.value = "";
+                    renderFocusAllowlist();
+                    if (typeof toast === "function") toast(domain + " added to Focus Allowlist", "ok");
+                    if (typeof msg === "function") msg("TRIGGER_DNR_UPDATE");
+                }
+            });
+        }
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        setTimeout(init, 200);
+    }
+
+    // --- Unified Modal Logic ---
+    const addRuleModal = document.getElementById("add-rule-modal");
+    const btnOpenAddModal = document.getElementById("btn-open-add-modal");
+    const btnOpenTagModal = document.getElementById("btn-open-tag-modal");
+    const btnCloseAddModal = document.getElementById("btn-close-add-modal");
+
+    if (addRuleModal && btnOpenAddModal) {
+        btnOpenAddModal.addEventListener("click", () => {
+            if ($("m-id")) $("m-id").value = "";
+            if ($("cat-inp")) $("cat-inp").value = "";
+            if ($("cat-redir")) $("cat-redir").value = "";
+            if ($("cd-inp-domain")) $("cd-inp-domain").value = "";
+            if ($("mon-inp-domain")) $("mon-inp-domain").value = "";
+            if ($("add-rule-modal-title")) $("add-rule-modal-title").textContent = "Add Block Rule";
+            if (typeof switchRuleModalTab === "function") switchRuleModalTab("block");
+            addRuleModal.classList.remove("hide");
+        });
+    }
+    if (addRuleModal && btnOpenTagModal) {
+        btnOpenTagModal.addEventListener("click", () => {
+            if ($("m-id")) $("m-id").value = "";
+            if ($("cat-inp")) $("cat-inp").value = "";
+            if ($("cat-redir")) $("cat-redir").value = "";
+            if ($("cd-inp-domain")) $("cd-inp-domain").value = "";
+            if ($("mon-inp-domain")) $("mon-inp-domain").value = "";
+            if ($("add-rule-modal-title")) $("add-rule-modal-title").textContent = "Track / Label Site";
+            if (typeof switchRuleModalTab === "function") switchRuleModalTab("monitor");
+            addRuleModal.classList.remove("hide");
+        });
+    }
+    if (addRuleModal && btnCloseAddModal) {
+        btnCloseAddModal.addEventListener("click", () => addRuleModal.classList.add("hide"));
+    }
+
+    document.querySelectorAll(".add-rule-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".add-rule-tab").forEach(b => b.classList.remove("act"));
+            document.querySelectorAll(".add-form-pane").forEach(p => p.style.display = "none");
+            btn.classList.add("act");
+            const type = btn.getAttribute("data-ruletype");
+            const pane = document.getElementById(`add-form-${type}`);
+            if (pane) pane.style.display = "block";
+        });
+    });
+
+    // FF v6.7.0: Search wiring for Rules list (Problem 19)
+    const _rulesSearchEl = document.getElementById("rules-search");
+    if (_rulesSearchEl) {
+        let _rsDebounce = null;
+        _rulesSearchEl.addEventListener("input", () => {
+            clearTimeout(_rsDebounce);
+            _rsDebounce = setTimeout(() => {
+                const q = _rulesSearchEl.value.toLowerCase().trim();
+                const list = document.getElementById("combined-list");
+                if (!list) return;
+                list.querySelectorAll(".brow").forEach(row => {
+                    const dom = row.querySelector(".dom");
+                    const text = (dom ? dom.textContent : "").toLowerCase();
+                    row.style.display = (!q || text.includes(q)) ? "" : "none";
+                });
+            }, 150);
+        });
+    }
+
+    // FF v6.7.0: Search wiring for Top Sites (Problem 19)
+    const _tsSearchEl = document.getElementById("top-sites-search");
+    if (_tsSearchEl) {
+        let _tsDebounce = null;
+        _tsSearchEl.addEventListener("input", () => {
+            clearTimeout(_tsDebounce);
+            _tsDebounce = setTimeout(() => {
+                const q = _tsSearchEl.value.toLowerCase().trim();
+                const container = document.getElementById("top-sites");
+                if (!container) return;
+                container.querySelectorAll(".siterow").forEach(row => {
+                    const dom = row.querySelector(".dom, .sitedom");
+                    const text = (dom ? dom.textContent : "").toLowerCase();
+                    row.style.display = (!q || text.includes(q)) ? "" : "none";
+                });
+            }, 150);
+        });
+    }
+
+})();
