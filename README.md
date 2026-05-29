@@ -6,7 +6,7 @@
 
 <p>
   <a href="https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic"><img src="https://developer.microsoft.com/store/badges/images/English_get-it-from-MS.png" alt="Get it from Microsoft" height="48"></a>
-  <a href="https://addons.mozilla.org/en-US/firefox/addon/focusflow-website-blocker/"><img src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" alt="Get the add-on" height="48"></a>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/flow-website-manager/"><img src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" alt="Get the add-on" height="48"></a>
 </p>
 
 ---
@@ -50,7 +50,7 @@ Whether you are studying, coding, writing, or designing, Flow keeps you in "the 
 | Store | Status |
 |---|---|
 | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic) | ✅ Approved |
-| [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/focusflow-website-blocker/) | ✅ Approved |
+| [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/flow-website-manager/) | ✅ Approved |
 | Opera Add-ons | ⏳ Pending Moderation |
 | Chrome Web Store | 🔜 Coming Soon |
 
@@ -115,7 +115,7 @@ Describe your problem or idea in [GitHub Issues](https://github.com/vishwa-vsr/F
 We are adding multi-language support. If you speak Hindi, Spanish, or another language, we'd love your help!
 
 #### 3. Rate 5 Stars ⭐
-Leave a review on [Firefox](https://addons.mozilla.org/en-US/firefox/addon/focusflow-website-blocker/) or [Edge](https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic). It's simple and incredibly helpful!
+Leave a review on [Firefox](https://addons.mozilla.org/en-US/firefox/addon/flow-website-manager/) or [Edge](https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic). It's simple and incredibly helpful!
 
 ---
 
@@ -128,7 +128,7 @@ This project is licensed under the [MIT License](./LICENSE).
 ## 🔗 Links
 
 * [Edge Add-on](https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic)
-* [Firefox Add-on](https://addons.mozilla.org/en-US/firefox/addon/focusflow-website-blocker/)
+* [Firefox Add-on](https://addons.mozilla.org/en-US/firefox/addon/flow-website-manager/)
 * [Privacy Policy](./PRIVACY.md)
 
 ---
