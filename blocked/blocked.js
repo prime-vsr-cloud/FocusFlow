@@ -1,18 +1,7 @@
-// FocusFlow v6.5 — Blocked Page
+// Flow v6.5 — Blocked Page
 // New: show rule that fired, "unblock for 5 min" (PIN-gated), last productive site, rotating quotes.
 
-const QUOTES = [
-  '"Future you is watching. Make them proud."',
-  '"Discipline is choosing between what you want now and what you want most."',
-  '"Deep work beats busy work."',
-  '"Small steps every day build big results."',
-  '"You don\'t need more time. You need more focus."',
-  '"What you do today matters more than you think."',
-  '"The obstacle is the way."',
-  '"Suffer the pain of discipline or suffer the pain of regret."',
-  '"Your focus determines your reality."',
-  '"Be so good they cannot ignore you."',
-];
+
 
 const MSGS = [
   { e: "🧱", h: "Not today, champ.", s: "Your future self said NO. They were very firm about it." },
@@ -30,7 +19,7 @@ const RULE_LABELS = {
   schedule: "Schedule Block Active",
   time_limit: "Daily Limit Reached",
   manual: "Manually Blocked",
-  strict: "Strict Focus Mode",
+  tweak: "Distracting Section Blocked",
 };
 
 const RULE_DETAIL = {
@@ -38,7 +27,7 @@ const RULE_DETAIL = {
   schedule: "This site is blocked during your scheduled block hours.",
   time_limit: "You have hit your daily time limit for this site.",
   manual: "You added this site to your block list.",
-  strict: "You are in Deep Work / Strict Allowlist mode — only your allowlist can pass.",
+  tweak: "Access to this specific section is blocked by your Advanced Site Tweaks.",
 };
 
 // ── Parse params ──────────────────────────────────────────────────────────────
@@ -46,7 +35,7 @@ var qs = new URLSearchParams(window.location.search || "");
 var hs = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
 function P(k1, k2) { return qs.get(k1) || qs.get(k2) || hs.get(k1) || hs.get(k2) || ""; }
 var blockedDomain = P("domain", "d") || "this site";
-var reason = P("reason", "r") || (qs.get("strict") === "1" ? "strict" : "rule");
+var reason = P("reason", "r") || "rule";
 var limit = Number(P("limit", "l") || 0);
 
 // ── Randomise message ─────────────────────────────────────────────────────────
@@ -77,7 +66,7 @@ if (reason === "time_limit" && limit > 0) {
 } else if (reason === "schedule" && schedEnd) {
   badge.textContent = "Blocked until " + formatTime12(schedEnd);
 } else {
-  badge.textContent = RULE_LABELS[reason] || "Blocked by FocusFlow";
+  badge.textContent = RULE_LABELS[reason] || "Blocked by Flow";
 }
 badge.className = "badge " + (RULE_LABELS[reason] ? reason : "");
 
@@ -97,7 +86,8 @@ try {
     if (chrome.runtime.lastError || !res || !res.domain) return;
     var el = document.getElementById("productive-suggestion");
     if (!el) return;
-    el.innerHTML = 'Go do something useful: <a href="https://' + res.domain + '" class="prod-link">' + res.domain + ' →</a>';
+    var safeDom = String(res.domain).replace(/[&<>'"]/g, function(tag) { return ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag] || tag); });
+    el.innerHTML = 'Go do something useful: <a href="https://' + safeDom + '" class="prod-link">' + safeDom + ' →</a>';
     el.style.display = "block";
   });
 } catch (_) { }
@@ -107,15 +97,13 @@ try {
 
 // ── Back button ───────────────────────────────────────────────────────────────
 document.getElementById("btn-back").addEventListener("click", function () {
-  try {
-    chrome.tabs && chrome.tabs.getCurrent && chrome.tabs.getCurrent(function (tab) {
-      if (tab && tab.id) {
-        chrome.tabs.remove(tab.id, function () {
-          if (chrome.runtime.lastError) location.replace("chrome://newtab/");
-        });
-      } else { location.replace("chrome://newtab/"); }
-    });
-  } catch (e) { location.replace("chrome://newtab/"); }
+  if (window.history.length > 2) {
+      window.history.back();
+  } else if (typeof chrome !== "undefined" && chrome.tabs) {
+      chrome.tabs.update({ url: "chrome://newtab/" });
+  } else {
+      window.location.href = "https://www.google.com";
+  }
 });
 
 document.getElementById("btn-set").addEventListener("click", function () {

@@ -33,7 +33,7 @@
   // Fast check: is this current website actually tracked or governed by any rules?
   // Bug 6 fix: read only blockRules + cooldownConfig (1 read instead of 3)
   const fastCfg = await new Promise((res) =>
-    chrome.storage.local.get(["cooldownConfig", "blockRules"], (r) => res(r || {}))
+    chrome.storage.local.get(["cooldownConfig", "blockRules", "granularRules"], (r) => res(r || {}))
   );
   const cdConf1 = fastCfg.cooldownConfig || {};
   const cooldowns = (cdConf1.activeDomains || []).map((d) => String(d).toLowerCase().trim()).filter(Boolean);
@@ -44,9 +44,105 @@
   const isBlocked = blockRules.some((r) => r.domain && (host === r.domain.toLowerCase() || host.endsWith("." + r.domain.toLowerCase())));
 
   // If the user has absolutely no rules for this domain, bail out completely!
-  if (!isCooldown && !isBlocked) {
+  if (!isCooldown && !isBlocked && (!fastCfg.granularRules || !fastCfg.granularRules[host])) {
     window.__ffCooldownActive = false;
     return;
+  }
+
+  // ---- Advanced Reddit Shadow DOM Hiding ----
+  if (host === "reddit.com" && fastCfg.granularRules && fastCfg.granularRules["reddit.com"]) {
+    const rdRules = fastCfg.granularRules["reddit.com"];
+
+    const findInShadows = (selector) => {
+      const found = [];
+      const search = (root) => {
+        if (!root) return;
+        try {
+          const matched = root.querySelectorAll(selector);
+          matched.forEach(el => {
+            if (!found.includes(el)) found.push(el);
+          });
+        } catch (e) {}
+        try {
+          const all = root.querySelectorAll('*');
+          all.forEach(el => {
+            if (el.shadowRoot) {
+              search(el.shadowRoot);
+            }
+          });
+        } catch (e) {}
+      };
+      search(document);
+      return found;
+    };
+
+    const isSidebarRoot = (el) => {
+      if (!el) return false;
+      const tag = el.tagName.toUpperCase();
+      const id = (el.id || "").toLowerCase();
+      return tag === 'REDDIT-SIDEBAR-NAV' || 
+             tag === 'LEFT-NAV-TOP-SECTION' || 
+             tag === 'NAV' || 
+             id.includes('sidebar') || 
+             id === 'left-sidebar';
+    };
+
+    const hideRedditTweaks = () => {
+      if (rdRules["rd-recent-communities"]) {
+        // Target and hide the Recent section elements
+        const recents = findInShadows('reddit-recent-pages, #recent-communities-section');
+        recents.forEach(recent => {
+          recent.style.setProperty('display', 'none', 'important');
+          if (recent.parentElement && recent.parentElement.parentElement) {
+            if (!isSidebarRoot(recent.parentElement.parentElement)) {
+              recent.parentElement.parentElement.style.setProperty('display', 'none', 'important');
+            } else if (!isSidebarRoot(recent.parentElement)) {
+              recent.parentElement.style.setProperty('display', 'none', 'important');
+            }
+          }
+        });
+
+        // Target and hide the Communities section elements
+        const comms = findInShadows('#communities_section');
+        comms.forEach(comm => {
+          if (comm.parentElement && comm.parentElement.parentElement) {
+            if (!isSidebarRoot(comm.parentElement.parentElement)) {
+              comm.parentElement.parentElement.style.setProperty('display', 'none', 'important');
+            } else if (!isSidebarRoot(comm.parentElement)) {
+              comm.parentElement.style.setProperty('display', 'none', 'important');
+            }
+          } else {
+            comm.style.setProperty('display', 'none', 'important');
+          }
+        });
+      }
+
+      if (rdRules["rd-popular"]) {
+        const pops = findInShadows('#popular-posts');
+        pops.forEach(pop => {
+          pop.style.setProperty('display', 'none', 'important');
+        });
+
+        const exps = findInShadows('#explore-communities');
+        exps.forEach(exp => {
+          exp.style.setProperty('display', 'none', 'important');
+        });
+
+        const leftTops = findInShadows('left-nav-top-section');
+        leftTops.forEach(host => {
+          if (host.shadowRoot) {
+            const items = host.shadowRoot.querySelectorAll('faceplate-tracker');
+            items.forEach((item, index) => {
+              if (index >= 1 && index <= 3) {
+                item.style.setProperty('display', 'none', 'important');
+              }
+            });
+          }
+        });
+      }
+    };
+    setInterval(hideRedditTweaks, 1000);
+    document.addEventListener("DOMContentLoaded", hideRedditTweaks);
   }
 
   // ---- Active Interaction Heartbeats & Nudge Listeners (Always enabled if rules exist) ----
@@ -57,7 +153,7 @@
     t.id = "ff-nudge";
     t.style.cssText = "position:fixed;top:0;left:0;width:100%;background:#121212;color:#f8fafc;text-align:center;padding:12px;font-family:system-ui,-apple-system,sans-serif;font-weight:600;font-size:14px;z-index:2147483647;border-bottom:2px solid #F46B7A;box-shadow:0 4px 12px rgba(0,0,0,0.3);animation:ff-slide 0.5s ease;";
     const e = document.createElement("span");
-    e.textContent = "FocusFlow: 1 minute remaining for this site. Wrap it up!";
+    e.textContent = "Flow: 1 minute remaining for this site. Wrap it up!";
     const a = document.createElement("button");
     a.id = "ff-nudge-x";
     a.textContent = "✕";
@@ -101,11 +197,15 @@
       if (document.visibilityState === "visible" && (now - lastInteract < 30000)) {
         const elapsed = Math.round((now - lastHeartbeat) / 1000);
         if (elapsed > 0 && elapsed <= 15) {
-          chrome.runtime.sendMessage({
-            type: "TRACKING_HEARTBEAT",
-            domain: host,
-            elapsed: elapsed
-          }).catch(() => {});
+          try {
+            chrome.runtime.sendMessage({
+              type: "TRACKING_HEARTBEAT",
+              domain: host,
+              elapsed: elapsed
+            }).catch(() => {});
+          } catch (e) {
+            stopHeartbeat();
+          }
         }
       }
       lastHeartbeat = now;
@@ -134,6 +234,21 @@
   });
 
   // ---- 2. Cool-down overlay (Isolated check) ----
+  const matchedBlockDomain = Object.keys(cdConf1.blockActive || {}).find(d => host === d || host.endsWith("." + d));
+  if (matchedBlockDomain) {
+    let blockTarget = cdConf1.blockActive[matchedBlockDomain];
+    if (blockTarget) {
+      if (blockTarget.startsWith("/blocked/")) {
+        const separator = blockTarget.includes("?") ? "&" : "?";
+        blockTarget = chrome.runtime.getURL(blockTarget) + separator + "d=" + host;
+      } else if (!blockTarget.startsWith("http")) {
+        blockTarget = "https://" + blockTarget;
+      }
+      location.replace(blockTarget);
+      return;
+    }
+  }
+
   const matchedDomain = cooldowns.find((d) => host === d || host.endsWith("." + d));
   if (!matchedDomain) return;
 

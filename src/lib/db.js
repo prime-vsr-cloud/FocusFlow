@@ -57,7 +57,19 @@
       const store = await getStore("daily_logs", "readonly");
       return new Promise((resolve, reject) => {
         const req = store.get(day);
-        req.onsuccess = () => resolve(req.result ? req.result.entry : null);
+        req.onsuccess = () => {
+          let res = req.result ? req.result.entry : null;
+          if (res) {
+            // Data Guard: Sanitize entry shape and types
+            if (typeof res !== "object" || Array.isArray(res) || res === null) {
+              res = { sites: {}, timeline: [] };
+            } else {
+              res.sites = (typeof res.sites === "object" && res.sites !== null && !Array.isArray(res.sites)) ? res.sites : {};
+              res.timeline = Array.isArray(res.timeline) ? res.timeline : [];
+            }
+          }
+          resolve(res);
+        };
         req.onerror = () => reject(req.error);
       });
     },
@@ -69,7 +81,19 @@
       const store = tx.objectStore("daily_logs");
       const promises = days.map(d => new Promise((resolve) => {
         const req = store.get(d);
-        req.onsuccess = () => resolve({ day: d, entry: req.result ? req.result.entry : null });
+        req.onsuccess = () => {
+          let res = req.result ? req.result.entry : null;
+          if (res) {
+            // Data Guard: Sanitize entry shape and types
+            if (typeof res !== "object" || Array.isArray(res) || res === null) {
+              res = { sites: {}, timeline: [] };
+            } else {
+              res.sites = (typeof res.sites === "object" && res.sites !== null && !Array.isArray(res.sites)) ? res.sites : {};
+              res.timeline = Array.isArray(res.timeline) ? res.timeline : [];
+            }
+          }
+          resolve({ day: d, entry: res });
+        };
         req.onerror = () => resolve({ day: d, entry: null });
       }));
       const results = await Promise.all(promises);
@@ -87,7 +111,17 @@
         req.onsuccess = () => {
           const out = {};
           for (const r of req.result || []) {
-            out[r.day] = r.entry;
+            let res = r.entry;
+            if (res) {
+              // Data Guard: Sanitize entry shape and types
+              if (typeof res !== "object" || Array.isArray(res) || res === null) {
+                res = { sites: {}, timeline: [] };
+              } else {
+                res.sites = (typeof res.sites === "object" && res.sites !== null && !Array.isArray(res.sites)) ? res.sites : {};
+                res.timeline = Array.isArray(res.timeline) ? res.timeline : [];
+              }
+            }
+            out[r.day] = res;
           }
           resolve(out);
         };
@@ -213,6 +247,11 @@
         if (rollupCount) await FFDB.setRollups(rollups);
         await FFDB.setMeta("migrated_v1", { at: Date.now(), days: dayCount, rollups: rollupCount });
         console.log(`[FFDB] migrated ${dayCount} days + ${rollupCount} rollups to IndexedDB`);
+        try {
+          await new Promise((resolve) => {
+            chrome.storage.local.remove(["daily", "monthly_rollups"], resolve);
+          });
+        } catch (_) {}
       })();
       try {
         await FFDB._migrating;

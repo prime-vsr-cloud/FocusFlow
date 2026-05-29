@@ -5,37 +5,9 @@
 // When the setting is OFF, this file is never loaded — users see their
 // browser's true native new tab page (Google search box, top sites, etc.).
 
-const $ = (id) => document.getElementById(id);
-const send = (msg) =>
-  new Promise((r) => {
-    try { chrome.runtime.sendMessage(msg, (x) => { void chrome.runtime.lastError; r(x || null); }); }
-    catch (_) { r(null); }
-  });
 // Bug 5 fix: gSync and todayKey now come from storage.js (loaded via script tag)
 
-function fmtDur(secs) {
-  if (!secs || secs <= 0) return "0m";
-  const m = Math.floor(secs / 60);
-  if (m < 60) return m + "m";
-  const h = m / 60;
-  if (h < 24) return (h === Math.floor(h) ? h : h.toFixed(1)) + "h";
-  const d = Math.floor(h / 24), rh = Math.floor(h % 24);
-  return rh > 0 ? d + "d " + rh + "h" : d + "d";
-}
-function fmtMMSS(secs) {
-  secs = Math.max(0, Math.round(secs || 0));
-  const m = Math.floor(secs / 60), s = secs % 60;
-  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-}
 
-const QUOTES = [
-  '"Future you is watching. Make them proud."',
-  '"Discipline equals freedom."',
-  '"Small steps every day."',
-  '"Deep work beats busy work."',
-  '"You don\'t need more time. You need more focus."',
-  '"What you do today matters."',
-];
 
 // todayKey() now comes from storage.js (loaded via script tag)
 
@@ -48,28 +20,29 @@ function tickClock() {
     weekday: "long", month: "long", day: "numeric",
   });
   const h = d.getHours();
-  $("greet").textContent =
-    h < 5  ? "Burning the midnight oil" :
-    h < 12 ? "Good morning" :
-    h < 17 ? "Good afternoon" :
-    h < 21 ? "Good evening" : "Late night focus";
+  let greetTxt = "Late night focus";
+  if (h < 5) greetTxt = "Burning the midnight oil";
+  else if (h < 12) greetTxt = "Good morning";
+  else if (h < 17) greetTxt = "Good afternoon";
+  else if (h < 21) greetTxt = "Good evening";
+  $("greet").textContent = greetTxt;
 }
 
 async function loadStats() {
   try {
-    const res = await send({ type: "STATS_GET_DAY", day: todayKey() });
+    const res = await msg("STATS_GET_DAY", { day: todayKey() });
     const data = (res && res.data) || {};
     const prod = (data.productivity || 0) + (data.learning || 0);
     const dist = data.distraction || 0;
-    $("stat-prod").textContent = fmtDur(prod);
-    $("stat-dist").textContent = fmtDur(dist);
+    $("stat-prod").textContent = fmt(prod);
+    $("stat-dist").textContent = fmt(dist);
   } catch (_) {}
   try {
-    const r = await send({ type: "GET_FOCUS_HISTORY" });
+    const r = await msg("GET_FOCUS_HISTORY");
     const hist = (r && r.focusHistory) || [];
     const today = todayKey();
     const cycles = hist
-      .filter((h) => h.date === today)
+      .filter((h) => h.date === today && !h.isSchedule)
       .reduce((s, h) => s + (h.cyclesCompleted || 0), 0);
     $("stat-cycles").textContent = String(cycles);
   } catch (_) {}
@@ -92,7 +65,7 @@ function paintFocusButton(fs) {
       remaining = Math.max(0, Math.round((fs.phaseEndsAt - Date.now()) / 1000));
     }
     const phase = isWork ? "Work" : (fs.phase === "long_break" ? "Long Break" : "Break");
-    live.textContent = `⏱ ${phase} · ${fmtMMSS(remaining)} remaining`;
+    live.textContent = `⏱ ${phase} · ${fmtTimer(remaining)} remaining`;
     live.className = "live-timer show" + (isWork ? "" : " brk");
   } else {
     btn.textContent = "Start Focus";
@@ -103,7 +76,7 @@ function paintFocusButton(fs) {
 }
 
 async function refreshFocus() {
-  const res = await send({ type: "FOCUS_GET_STATE" });
+  const res = await msg("FOCUS_GET_STATE");
   lastState = (res && res.focusState) || null;
   paintFocusButton(lastState);
   if (lastState && lastState.active && !lastState.paused) startLiveTimer();
@@ -121,8 +94,22 @@ function stopLiveTimer() { if (liveTimer) { clearInterval(liveTimer); liveTimer 
 function wireButtons() {
   $("btn-focus").addEventListener("click", async () => {
     const action = $("btn-focus").dataset.action || "start";
-    if (action === "stop") await send({ type: "FOCUS_STOP" });
-    else await send({ type: "FOCUS_START" });
+    if (action === "stop") {
+      const s = await gSync(["settings"]);
+      const e = s.settings || {};
+      if (e.passcodeHash && e.lockStop !== false) {
+        const pin = prompt("Enter your 6-digit PIN to stop focus:");
+        if (!pin) return;
+        const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
+        const hashedPin = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+        if (hashedPin !== e.passcodeHash) {
+          alert("Incorrect PIN.");
+          return;
+        }
+      }
+      await msg("FOCUS_STOP");
+    }
+    else await msg("FOCUS_START");
     setTimeout(() => { refreshFocus(); loadStats(); }, 200);
   });
   $("btn-dash").addEventListener("click", () => {

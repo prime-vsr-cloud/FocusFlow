@@ -1,81 +1,136 @@
-# 🌊 FocusFlow
+# 🌊 Flow
 
-**A premium, gorgeous productivity companion that helps you reclaim your time, build deep focus habits, and block digital noise.**
+**A premium, zero-distraction productivity companion that helps you reclaim your time, build deep focus habits, and block digital noise.**
 
-![FocusFlow Preview](focusflow_preview.jpg)
+*Formerly known as FocusFlow.*
+
+<p>
+  <a href="https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic"><img src="https://developer.microsoft.com/store/badges/images/English_get-it-from-MS.png" alt="Get it from Microsoft" height="48"></a>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/focusflow-website-blocker/"><img src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" alt="Get the add-on" height="48"></a>
+</p>
 
 ---
 
-## ✨ What is FocusFlow?
+## ✨ What is Flow?
 
-FocusFlow is a high-end web assistant designed for people who want to work smarter, not longer. It blends a state-of-the-art **Pomodoro Focus Timer** with **Visual Site Analytics** and a **Smart Distraction Blocker** to create the ultimate distraction-free environment. 
+Flow is a high-end web assistant designed for people who want to work smarter, not longer. It blends a state-of-the-art **Pomodoro Focus Timer** with **Visual Site Analytics**, a **Smart Distraction Blocker**, and a **365-Day Consistency Heatmap** to create the ultimate distraction-free environment.
 
-Whether you are studying, coding, writing, or designing, FocusFlow keeps you in "the zone" while gently helping you build healthier screen-time habits.
+Whether you are studying, coding, writing, or designing, Flow keeps you in "the zone" while gently helping you build healthier screen-time habits.
+
+**🔒 Privacy first** — All your data is stored locally on your device. Zero tracking, zero data collection.
 
 ---
 
 ## 🚀 Key Features
 
-* **⏱️ Premium Pomodoro Timer**  
-  Fully customizable work sessions, short breaks, and long breaks. Features a gorgeous glowing ring that slowly fills as your session progresses.
-  
-* **📊 Visual Time Tracking**  
-  A beautiful, modern circular donut chart displays your top-visited websites and shows you exactly where your minutes went today vs. all-time.
-  
-* **🚫 Instantly Toggle Distractions**  
-  See a site that is eating up your focus? Flip a single switch directly inside the popup to immediately block access to it.
-  
-* **🔒 Self-Control PIN Lock**  
-  Keep yourself honest (or secure your settings) with a 4-digit PIN lock screen that blocks tampering or accidental session skips.
-  
-* **🎯 Weekly Goals & Milestones**  
-  Set your focus targets for the week, track your progress with a clean visual bar, and earn a glowing orange streak badge for consecutive days.
-  
-* **🌗 Premium Dark & Light Themes**  
-  Switch instantly between an ultra-modern glassmorphic dark mode (with deep grays and vibrant neon greens) and a clean, high-contrast light mode.
+| Feature | Description |
+|---|---|
+| ⏱️ **Premium Pomodoro Timer** | Fully customizable work sessions, short breaks, and long breaks with a glowing ring that fills as your session progresses. |
+| 📊 **Visual Time Tracking** | Circular donut chart displays your top-visited websites and shows exactly where your minutes went. |
+| 🚫 **Smart Site Blocker** | Network-level blocking with time limits, daily schedules, cool-down timers, and a custom redirect. |
+| 🔒 **6-Digit PIN Lock** | Granular locks for Timer Stop, Rule Editing, Free-time Hours, Focus Presets, Schedules, and Danger Zone. |
+| 🎯 **Weekly Goals & Streaks** | Set focus targets, track your progress, and earn a glowing streak badge for consecutive days. |
+| 🗺️ **365-Day Heatmap** | GitHub-style consistency heatmap with customizable thresholds. Green = focused. Red = wasted. |
+| 📈 **Study vs Distraction Trends** | Color-coded trend charts with per-category toggles (Productivity, Learning, Communication, Distraction). |
+| 🏷️ **Site Categorization** | Tag every website as Productivity, Learning, Communication, Distraction, or Uncategorized. |
+| ⏰ **Focus Schedules** | Set recurring daily/weekly focus sessions that auto-start. |
+| 🌗 **Dark, Light & Cinematic Themes** | Three premium themes including a glassmorphic cinematic mode with animated gradient blurs. |
+| 🆕 **Custom New Tab (Beta)** | Replace your browser's default new tab with Flow's clock and stats. |
 
 ---
 
-## 🛠️ How to Install & Use
+## 📸 Screenshots
 
-1. **Download the project files** to your computer.
-2. Open your web browser (Chrome, Edge, or Brave) and go to your **Extensions** page (or type `chrome://extensions` in your address bar).
-3. Turn on **Developer mode** (usually a toggle switch in the top right corner).
-4. Click **Load unpacked** (top left) and select this folder (`Focusflow 4.1`).
-5. **Pin FocusFlow** to your browser toolbar for quick access!
+> **Note:** Screenshots coming soon. Want to contribute? See [Contributing](#-contributing) below.
 
 ---
 
-## 💡 How It Works under the Hood
-* FocusFlow monitors the active tab to calculate time spent on each website.
-* When Focus Mode is on, it instantly redirects blocked websites to a calming, custom "Blocked" screen.
-* All your settings and stats are saved locally on your computer, meaning **your browsing data never leaves your device**.
+## 📥 Download
+
+| Store | Status |
+|---|---|
+| [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic) | ✅ Approved |
+| [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/focusflow-website-blocker/) | ✅ Approved |
+| Opera Add-ons | ⏳ Pending Moderation |
+| Chrome Web Store | 🔜 Coming Soon |
 
 ---
 
-*Made with 💖 for focused minds.*
+## 🛠️ Manual Installation (Developer Mode)
+
+1. **Download** or clone this repository to your computer.
+2. Open your browser and go to the **Extensions** page (`chrome://extensions` or `edge://extensions`).
+3. Turn on **Developer mode** (toggle in the top right corner).
+4. Click **Load unpacked** and select the `flow-source` folder.
+5. **Pin Flow** to your browser toolbar for quick access!
 
 ---
 
 ## 💻 Source Code & Build Instructions
 
-This directory contains the original, un-minified source code for FocusFlow.
+This repository contains the original, un-minified source code for Flow.
 
 ### Build Instructions
 
-To generate the exact minified code submitted to the Mozilla Add-ons store, please follow these steps:
+To generate the minified code submitted to browser add-on stores:
 
-1. Ensure Python 3 is installed on your system.
-2. Open a terminal or command prompt and navigate into this `focusflow-source` directory.
-3. Run the following command:
+1. Ensure **Python 3** is installed on your system.
+2. Open a terminal and navigate into the `flow-source` directory.
+3. Run:
    ```bash
    python build.py
    ```
-4. The script will execute and automatically create a `focusflow-firefox` directory (and a `focusflow-dist` directory for Chromium) containing the final, minified extension code.
+4. The script will create a `flow-firefox` directory (and a `flow-dist` directory for Chromium) containing the final, minified extension code.
 
 ### Notes on the Build Process
-* The `build.py` script does not use complex bundlers like Webpack, Rollup, or Vite.
-* It uses basic Regular Expressions to cleanly strip whitespace, newlines, and comments to improve extension performance and load times.
-* The code is not obfuscated.
+* The `build.py` script does **not** use complex bundlers like Webpack, Rollup, or Vite.
+* It uses basic Regular Expressions to cleanly strip whitespace, newlines, and comments.
+* The code is **not** obfuscated.
 
-If you have any questions or require further information, please refer to the support email provided in the extension listing. Thank you!
+---
+
+## 💡 How It Works Under the Hood
+
+* Flow monitors the active tab to calculate time spent on each website.
+* When a site is blocked, it uses the `declarativeNetRequest` API for **network-level blocking** — the site never even loads.
+* The blocked page shows a cinematic, motivational screen with the specific reason for the block.
+* All settings and stats are saved locally using `chrome.storage`, meaning **your browsing data never leaves your device**.
+
+---
+
+## 📋 Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for a full list of changes across all versions.
+
+---
+
+## 🤝 Contributing
+
+There are several ways to contribute to Flow:
+
+#### 1. Report Bugs & Request Features
+Describe your problem or idea in [GitHub Issues](https://github.com/vishwa-vsr/FocusFlow/issues).
+
+#### 2. Help Translate
+We are adding multi-language support. If you speak Hindi, Spanish, or another language, we'd love your help!
+
+#### 3. Rate 5 Stars ⭐
+Leave a review on [Firefox](https://addons.mozilla.org/en-US/firefox/addon/focusflow-website-blocker/) or [Edge](https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic). It's simple and incredibly helpful!
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](./LICENSE).
+
+---
+
+## 🔗 Links
+
+* [Edge Add-on](https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic)
+* [Firefox Add-on](https://addons.mozilla.org/en-US/firefox/addon/focusflow-website-blocker/)
+* [Privacy Policy](./PRIVACY.md)
+
+---
+
+*Made with 💖 by [vishwa-vsr](https://github.com/vishwa-vsr) — Student and indie developer from India.*

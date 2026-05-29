@@ -171,7 +171,10 @@ function updDots() {
 }
 async function checkGate() {
     var e = (await gSync(["settings"])).settings || {};
-    return !e.passcodeHash || !0 !== e.lockDash || showPass()
+    if (!e.passcodeHash || !1 === e.lockSettings) return !0;
+    for (;;) {
+        if (await showPass(!1, "Settings Locked", "Enter your 6-digit PIN to access settings.")) return !0;
+    }
 }
 async function promptPinIfEnabled(e) {
     var t = (await gSync(["settings"])).settings || {};
@@ -341,11 +344,10 @@ async function renderCombined() {
     var e = $("combined-list");
     e.className = isBulkMode ? "bulk-mode" : "", e.querySelectorAll(".brow").forEach(e => e.remove());
 
-    $("combined-empty") && (rules.length || allowList.length ? $("combined-empty").style.display = "none" : ($("combined-empty").style.display = "flex", $("combined-empty").innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 24px;width:100%;"><svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.2;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><p style="font-size:16px;font-weight:800;color:var(--tx2);margin:0;">No rules yet</p><p style="font-size:13px;color:var(--tx3);margin:0;text-align:center;">Block distracting sites or allow exceptions to get started.</p><div style="display:flex;gap:10px;margin-top:4px;"><button class="bp" id="empty-state-add-block" style="padding:10px 24px;font-size:14px;font-weight:800;">+ Block a Site</button><button class="bs" id="empty-state-add-allow" style="padding:10px 20px;font-size:14px;font-weight:700;">+ Allow a Site</button></div></div>')),
+    $("combined-empty") && (rules.length || allowList.length ? $("combined-empty").style.display = "none" : ($("combined-empty").style.display = "flex", $("combined-empty").innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 24px;width:100%;"><svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.2;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><p style="font-size:16px;font-weight:800;color:var(--tx2);margin:0;">No rules yet</p><p style="font-size:13px;color:var(--tx3);margin:0;text-align:center;">Block distracting sites or allow exceptions to get started.</p><div style="display:flex;gap:10px;margin-top:4px;"><button class="bp" id="empty-state-add-block" style="padding:10px 24px;font-size:14px;font-weight:800;">+ Block a Site</button></div></div>')),
         setTimeout(() => {
-            const _eb = $("empty-state-add-block"), _ea = $("empty-state-add-allow");
-            if (_eb) _eb.onclick = () => $("btn-add-rule") && $("btn-add-rule").click();
-            if (_ea) _ea.onclick = () => $("btn-add-allow") && $("btn-add-allow").click();
+            const _eb = $("empty-state-add-block");
+            if (_eb) _eb.onclick = () => $("btn-open-add-modal") && $("btn-open-add-modal").click();
         }, 0);
 
     rules.forEach(function (t) {
@@ -366,11 +368,11 @@ async function renderCombined() {
             schedText = (schedText !== "—" ? schedText + " / " : "") + freqLabel;
         }
 
-        a.className = "brow brow-rules", a.innerHTML = `\n      <input type="checkbox" class="bulk-cb" data-id="${t.id}">\n      <span class="dom" style="display:flex;align-items:center;gap:8px;">${getFav(t.domain)} ${_sd}</span>\n      <span><span class="cbadge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)">Blocked</span></span>\n      <span class="mtxt">${ruleMode(t)}</span>\n      <span class="ltxt">${limitText}</span>\n      <span class="stxt">${schedText}</span>\n      <span class="ract"><button class="bic edit-r" data-id="${t.id}">✎</button><button class="bic del del-r" data-id="${t.id}">✕</button></span>`, e.appendChild(a)
+        a.className = "brow brow-rules", a.innerHTML = `\n      <input type="checkbox" class="bulk-cb" data-id="${t.id}">\n      <span class="dom" style="display:flex;align-items:center;gap:8px;">${getFav(t.domain)} ${_sd}</span>\n      <span><span class="cbadge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)">Blocked</span></span>\n      <span class="mtxt">${ruleMode(t)}</span>\n      <span class="ltxt">${limitText}</span>\n      <span class="stxt">${schedText}</span>\n      <span class="ract"><button class="bic edit-r" data-id="${t.id}">✎</button><button class="bic del del-r" data-id="${t.id}">✕</button></span>`, document.getElementById("combined-list-rows").appendChild(a)
     }), allowList.forEach(function (t) {
         var a = document.createElement("div");
         const _sa = sanitizeDomain(t);
-        a.className = "brow brow-rules allow-row", a.innerHTML = `\n      <input type="checkbox" class="bulk-cb" data-d="${_sa}">\n      <span class="dom" style="display:flex;align-items:center;gap:8px;">${getFav(t)} ${_sa}</span>\n      <span><span class="cbadge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">Allowed</span></span>\n      <span class="mtxt" style="color:var(--tx3)">Always accessible</span><span class="ltxt">—</span><span class="stxt">—</span>\n      <span class="ract"><button class="bic del del-a" data-d="${_sa}">✕</button></span>`, e.appendChild(a)
+        a.className = "brow brow-rules allow-row", a.innerHTML = `\n      <input type="checkbox" class="bulk-cb" data-d="${_sa}">\n      <span class="dom" style="display:flex;align-items:center;gap:8px;">${getFav(t)} ${_sa}</span>\n      <span><span class="cbadge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">Allowed</span></span>\n      <span class="mtxt" style="color:var(--tx3)">Always accessible</span><span class="ltxt">—</span><span class="stxt">—</span>\n      <span class="ract"><button class="bic del del-a" data-d="${_sa}">✕</button></span>`, document.getElementById("combined-list-rows").appendChild(a)
     }), e.querySelectorAll(".edit-r").forEach(e => e.addEventListener("click", async () => {
         await promptPinIfEnabled("lockRules") && openModal(e.getAttribute("data-id"))
     })), e.querySelectorAll(".del-r").forEach(e => e.addEventListener("click", () => delRule(e.getAttribute("data-id")))), e.querySelectorAll(".del-a").forEach(e => e.addEventListener("click", () => delAllow(e.getAttribute("data-d")))), e.querySelectorAll(".bulk-cb").forEach(e => {
@@ -381,27 +383,11 @@ async function renderCombined() {
     })
 }
 
-function addBlockedSite(e, t, a) {
-    if (rules.find(t => t.domain === e)) return toast(e + " already blocked", "er"), null;
-    var n = {
-        id: uid(),
-        domain: e,
-        category: t,
-        redirectUrl: a || null,
-        instantBlock: !0,
-        focusOnly: !1,
-        timeLimitEnabled: !1,
-        dailyLimitSecs: 0,
-        scheduleEnabled: !1,
-        schedules: []
-    };
-    return rules.push(n), n
-}
+// addBlockedSite removed (dead code)
 async function delRule(e) {
     if (!await promptPinIfEnabled("lockRules")) return;
-    let t = await gLocal(["blockRules"]);
-    const _deleted = (t.blockRules || []).find(r => r.id === e);
-    rules = (rules = t.blockRules || []).filter(t => t.id !== e);
+    const _deleted = rules.find(r => r.id === e);
+    rules = rules.filter(t => t.id !== e);
     await saveRulesAndSync(rules);
     await msg("TRIGGER_DNR_UPDATE"); renderCombined();
     // FF v6.18: Undo toast — 10-second window with live countdown (was 5s)
@@ -411,9 +397,8 @@ async function delRule(e) {
         _undoBtn.textContent = "Undo (10s)"; _undoBtn.style.cssText = "margin-left:12px;background:var(--bg4);border:1px solid var(--bd2);color:var(--tx);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;";
         _undoBtn.onclick = async () => {
             if (_undone) return; _undone = true;
-            const _r2 = await gLocal(["blockRules"]);
-            const _arr = _r2.blockRules || []; _arr.push(_deleted);
-            rules = _arr; await saveRulesAndSync(_arr);
+            rules.push(_deleted);
+            await saveRulesAndSync(rules);
             await msg("TRIGGER_DNR_UPDATE"); renderCombined(); toast("Undo: rule restored", "ok");
         };
         const _stackIdx = _toastStackCount++;
@@ -484,7 +469,6 @@ function openModal(e) {
     if (!t) return;
     $("m-id").value = e;
     $("cat-inp").value = t.domain;
-    $("block-cat").value = t.category || "distraction";
     $("cat-redir").value = t.redirectUrl || "";
     let isInstant = !!t.instantBlock;
     let isTimeLimit = !!t.timeLimitEnabled;
@@ -542,19 +526,6 @@ function openModal(e) {
     if ($("add-rule-modal-title")) $("add-rule-modal-title").textContent = "Edit Block Rule";
     if (typeof switchRuleModalTab === "function") switchRuleModalTab("block");
     if ($("add-rule-modal")) $("add-rule-modal").classList.remove("hide");
-}
-async function applyPreset(e) {
-    var t = PRESETS[e];
-    if (t) {
-        var a = siteCategories;
-        for (var n of (t.forEach(e => a[e.d] = e.c), await sLocal({
-            siteCategories: a
-        }), siteCategories = a, t)) await msg("CATEGORIZE_SITE", {
-            domain: n.d,
-            category: n.c
-        });
-        renderCategories(), toast("Applied " + e, "ok")
-    }
 }
 
 
@@ -644,7 +615,7 @@ function renderFocus(e, t = 25) {
     var a = "work" === e.phase,
         n = e.fullDuration || (a ? 1500 : "long_break" === e.phase ? 900 : 300),
         i = Math.max(0, 1 - Math.min(1, (e.remaining || 0) / n));
-    $("frf") && ($("frf").style.stroke = a ? "var(--green)" : "var(--amber)", $("frf").setAttribute("stroke-dashoffset", (FCIRC * i).toFixed(1))), $("fpb") && ($("fpb").style.color = a ? "var(--green)" : "var(--amber)", $("fpb").textContent = a ? "Work" : "long_break" === e.phase ? "Long Break" : "Short Break"), $("ftb") && ($("ftb").textContent = fmtT(e.remaining || 0)), $("fcyc") && ($("fcyc").textContent = (e.cyclesCompleted || 0) + " " + ((e.cyclesCompleted === 1) ? "cycle" : "cycles")), $("btn-fs") && ($("btn-fs").style.display = "none"), $("btn-fst") && ($("btn-fst").style.display = ""), $("btn-fp") && ($("btn-fp").style.display = "", e.paused ? (e.remaining === n ? $("btn-fp").textContent = "work" === e.phase ? "▶ Start Work" : "▶ Start Break" : $("btn-fp").textContent = "▶ Resume", $("frf") && ($("frf").style.opacity = "0.5")) : ($("btn-fp").textContent = "⏸ Pause", $("frf") && ($("frf").style.opacity = "1"))), $("btn-skip") && ($("btn-skip").style.display = a ? "none" : "");
+    $("frf") && ($("frf").style.stroke = a ? "var(--green)" : "var(--amber)", $("frf").setAttribute("stroke-dashoffset", (FCIRC * i).toFixed(1))), $("fpb") && ($("fpb").style.color = a ? "var(--green)" : "var(--amber)", $("fpb").textContent = a ? "Work" : "long_break" === e.phase ? "Long Break" : "Short Break"), $("ftb") && ($("ftb").textContent = fmtT(e.remaining || 0)), $("fcyc") && ($("fcyc").textContent = e.isSchedule ? "Scheduled Focus" : ((e.cyclesCompleted || 0) + " " + ((e.cyclesCompleted === 1) ? "cycle" : "cycles"))), $("btn-fs") && ($("btn-fs").style.display = "none"), $("btn-fst") && ($("btn-fst").style.display = ""), $("btn-fp") && ($("btn-fp").style.display = "", e.paused ? (e.remaining === n ? $("btn-fp").textContent = "work" === e.phase ? "▶ Start Work" : "▶ Start Break" : $("btn-fp").textContent = "▶ Resume", $("frf") && ($("frf").style.opacity = "0.5")) : ($("btn-fp").textContent = "⏸ Pause", $("frf") && ($("frf").style.opacity = "1"))), $("btn-skip") && ($("btn-skip").style.display = a ? "none" : "");
     // Bug #5 fix: reuse the single off-screen canvas instead of allocating each tick
     const s = _favCanvas;
     s.width = 32; s.height = 32; // resetting width clears the canvas
@@ -656,10 +627,12 @@ function renderFocus(e, t = 25) {
 }
 async function getActiveWorkMins() {
     try {
-        const raw = localStorage.getItem("ff.presets.v67");
-        if (raw) {
-            const store = JSON.parse(raw);
-            const ap = store.list.find(p => p.id === store.activeId) || store.list[0];
+        const localRes = await gSync(["focusPresets"]);
+        const syncRes = await gSync(["settings"]);
+        const presetsList = localRes.focusPresets;
+        const activeId = (syncRes.settings && syncRes.settings.activePresetId) || "pomodoro";
+        if (Array.isArray(presetsList) && presetsList.length) {
+            const ap = presetsList.find(p => p.id === activeId) || presetsList[0];
             if (ap && ap.work) return ap.work;
         }
     } catch (_) { }
@@ -675,13 +648,24 @@ async function loadFocusUI() {
 // Bug #5 fix: accept pre-loaded settings to avoid double gSync when called alongside loadExtendedSettings
 async function loadSettings(preloadedSettings) {
     var e = preloadedSettings || (await gSync(["settings"])).settings || {};
-    if ($("sw") && ($("sw").value = void 0 !== e.focusWork ? e.focusWork : 25), $("sb") && ($("sb").value = void 0 !== e.focusBreak ? e.focusBreak : 5), $("sl") && ($("sl").value = void 0 !== e.focusLongBreak ? e.focusLongBreak : 15), $("sc") && ($("sc").value = void 0 !== e.focusCycles ? e.focusCycles : 4), $("thresh-focus") && ($("thresh-focus").value = e.threshFocus || 75), $("thresh-balanced") && ($("thresh-balanced").value = e.threshBalanced || 40), $("thresh-distract") && ($("thresh-distract").value = e.threshDistract || 60), $("tog-badge") && ($("tog-badge").checked = !1 !== e.showBadge), $("idle-timeout-sel") && ($("idle-timeout-sel").value = e.idleTimeout || 30), $("welcome-back-thresh-sel") && ($("welcome-back-thresh-sel").value = e.welcomeBackThresh || 10), $("focus-block-cats")) {
-        $("focus-block-cats").style.display = !1 !== e.blockDuringFocus ? "flex" : "none";
-        let t = e.focusBlockCats || ["distraction"];
-        document.querySelectorAll(".focus-cb-cat").forEach(e => {
-            e.checked = t.includes(e.value)
-        })
+    if ($("focus-sched-start")) {
+        const fscheds = e.focusSchedules || [];
+        if (fscheds.length > 0) {
+            const s = fscheds[0];
+            $("focus-sched-start").value = s.startTime || "09:00";
+            $("focus-sched-end").value = s.endTime || "17:00";
+            const d = s.days || [1,2,3,4,5];
+            document.querySelectorAll(".focus-sched-day-cb").forEach(cb => {
+                cb.checked = d.includes(parseInt(cb.value));
+            });
+        }
     }
+    if ($("thresh-focus")) $("thresh-focus").value = e.threshFocus || 75;
+    if ($("thresh-balanced")) $("thresh-balanced").value = e.threshBalanced || 40;
+    if ($("thresh-distract")) $("thresh-distract").value = e.threshDistract || 60;
+    if ($("tog-badge")) $("tog-badge").checked = !1 !== e.showBadge;
+    if ($("idle-timeout-sel")) $("idle-timeout-sel").value = e.idleTimeout || 30;
+    if ($("welcome-back-thresh-sel")) $("welcome-back-thresh-sel").value = e.welcomeBackThresh || 10;
 }
 async function loadAnalytics() {
     const tabEl = $("atab-" + currentATab);
@@ -747,7 +731,8 @@ async function renderInsights() {
         const prod = d.productivity || 0;
         const learn = d.learning || 0;
         const distract = d.distraction || 0;
-        const total = focus + distract + (d.communication || 0) + (d.uncategorized || 0);
+        // Fix Issue 7: Calculate total by summing raw categories exactly once to prevent double-counting
+        const total = prod + learn + distract + (d.communication || 0) + (d.uncategorized || 0);
         dailyTotals[k] = { focus, prod, learn, distract, total };
         if (focus > maxFocus) maxFocus = focus;
     });
@@ -775,8 +760,9 @@ async function renderInsights() {
     // Safe split-based date construction to prevent RangeErrors/Invalid Dates on some systems
     const parts0 = keys[0].split("-");
     const firstDate = new Date(parseInt(parts0[0], 10), parseInt(parts0[1], 10) - 1, parseInt(parts0[2], 10));
-    // Pad with empty cells before the first date so weekday rows line up (Sunday = row 0)
-    const padStart = firstDate.getDay();
+    // Fix Issue 6: Pad based on chosen weekStartsOn setting (Monday vs Sunday start)
+    const weekStartsOn = settings.weekStartsOn || "mon";
+    const padStart = weekStartsOn === "sun" ? firstDate.getDay() : (firstDate.getDay() + 6) % 7;
     const totalCells = padStart + keys.length;
     const cols = Math.ceil(totalCells / 7);
     const W = cols * rowH + 60; // +60 for month labels area
@@ -843,7 +829,10 @@ async function renderInsights() {
     }
     // Weekday labels
     ctx.fillStyle = textStyle;
-    ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach((lbl, idx) => {
+    const weekdayLabels = (settings.weekStartsOn || "mon") === "sun"
+        ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    weekdayLabels.forEach((lbl, idx) => {
         ctx.fillText(lbl, 0, 28 + idx * rowH + 20);
     });
 
@@ -1072,8 +1061,7 @@ document.querySelectorAll(".ni").forEach(e => {
     }), $("btn-bulk-delete") && $("btn-bulk-delete").addEventListener("click", async () => {
         if (0 === bulkSelected.size) return void toast("No items selected", "er");
         if (!confirm(`Delete ${bulkSelected.size} rules?`)) return;
-        let e = await gLocal(["blockRules", "allowList"]);
-        rules = e.blockRules || [], allowList = e.allowList || [], rules = rules.filter(e => !bulkSelected.has(e.id)), allowList = allowList.filter(e => !bulkSelected.has(e)), await saveRulesAndSync(rules), await sLocal({
+        rules = rules.filter(e => !bulkSelected.has(e.id)), allowList = allowList.filter(e => !bulkSelected.has(e)), await saveRulesAndSync(rules), await sLocal({
             allowList: allowList
         }), await msg("TRIGGER_DNR_UPDATE"), isBulkMode = !1, bulkSelected.clear(), $("btn-bulk-edit").style.display = "", $("bulk-actions").style.display = "none", renderCombined(), toast("Rules deleted", "ok")
     }), $("btn-add-block") && $("btn-add-block").addEventListener("click", async function () {
@@ -1081,12 +1069,10 @@ document.querySelectorAll(".ni").forEach(e => {
         var e = $("cat-inp").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
         if (!e) return toast("Enter a domain", "er");
 
-        var t = $("block-cat").value;
+        var t = "distraction";
         var a = $("cat-redir").value.trim();
-        await tagSite(e, t);
 
-        var n = await gLocal(["blockRules"]);
-        rules = n.blockRules || [];
+
 
         var mId = $("m-id").value;
         var aIdx = rules.findIndex(r => r.id === mId || r.domain === e);
@@ -1118,7 +1104,6 @@ document.querySelectorAll(".ni").forEach(e => {
         ruleObj.cooldownEnabled = $("m-mode-cooldown").checked;
         ruleObj.redirectUrl = a || null;
         ruleObj.scheduleEnabled ? ruleObj.schedules = getSlots() : ruleObj.schedules = [];
-
         ruleObj.cooldownTimer = ruleObj.cooldownEnabled ? parseInt($("m-cd-wait").value, 10) : 10;
         ruleObj.cooldownFrequency = ruleObj.cooldownEnabled ? $("m-cd-freq").value : "always";
 
@@ -1173,16 +1158,29 @@ document.querySelectorAll(".ni").forEach(e => {
         finally { $("btn-fs").disabled = false; }
     }),
     // FF v6.7: + Add Schedule shortcut below the timer
-    $("btn-add-sched-shortcut") && $("btn-add-sched-shortcut").addEventListener("click", async () => {
+    $("btn-save-focus-sched") && $("btn-save-focus-sched").addEventListener("click", async () => {
         if (!(await promptPinIfEnabled("lockFocusScheds"))) return;
-        // FF v6.8: 3-schedule cap
-        const _sv = (await gSync(["settings"])).settings || {};
-        if ((_sv.focusSchedules || []).length >= 3) { toast("You can only have 3 focus schedules.", "er"); return; }
-        if (typeof openScheduleModal === "function") openScheduleModal(_sv.focusSchedules || []);
-        else if (typeof initFocusSchedules !== "undefined") {
-            const _addBtn = document.querySelector("#btn-add-schedule");
-            if (_addBtn) _addBtn.click();
-        }
+        const sv = (await gSync(["settings"])).settings || {};
+        const start = $("focus-sched-start").value;
+        const end = $("focus-sched-end").value;
+        const days = [];
+        document.querySelectorAll(".focus-sched-day-cb").forEach(cb => {
+            if (cb.checked) days.push(parseInt(cb.value));
+        });
+        if (!days.length) return toast("Select at least one day", "er");
+
+        sv.focusSchedules = [{
+            id: Date.now().toString(),
+            label: "Daily Focus",
+            startTime: start,
+            endTime: end,
+            days: days,
+            enabled: true,
+            strict: true,
+            blockCats: ["distraction", "communication", "uncategorized"]
+        }];
+        await sSync({ settings: sv });
+        toast("Focus schedule saved", "ok");
     }), $("btn-fst") && $("btn-fst").addEventListener("click", async () => {
         if ($("btn-fst").disabled) return; $("btn-fst").disabled = true;
         try {
@@ -1200,16 +1198,11 @@ document.querySelectorAll(".ni").forEach(e => {
         if ($("btn-skip").disabled) return; $("btn-skip").disabled = true;
         try { renderFocus((await msg("FOCUS_SKIP"))?.focusState, await getActiveWorkMins()); }
         finally { $("btn-skip").disabled = false; }
-    }), $("btn-save-focus") && $("btn-save-focus").addEventListener("click", async () => {
-        var e = (await gSync(["settings"])).settings || {};
-        e.focusWork = parseInt($("sw").value, 10), isNaN(e.focusWork) && (e.focusWork = 25), e.focusBreak = parseInt($("sb").value, 10), isNaN(e.focusBreak) && (e.focusBreak = 5), e.focusLongBreak = parseInt($("sl").value, 10), isNaN(e.focusLongBreak) && (e.focusLongBreak = 15), e.focusCycles = parseInt($("sc").value, 10), isNaN(e.focusCycles) && (e.focusCycles = 4);
-        let t = [];
-        document.querySelectorAll(".focus-cb-cat:checked").forEach(e => t.push(e.value)), e.focusBlockCats = t.length ? t : ["distraction"], await sSync({
-            settings: e
-        }), toast("Timer settings saved", "ok"), loadFocusUI(), msg("TRIGGER_DNR_UPDATE")
     }), $("btn-save-goals") && $("btn-save-goals").addEventListener("click", async () => {
         var e = (await gSync(["settings"])).settings || {};
-        e.weeklyGoalHours = parseInt($("weekly-goal-input").value) || 0, e.streakMinMinutes = parseInt($("streak-min-input").value) || 30;
+        e.weeklyGoalHours = parseInt($("weekly-goal-input").value) || 0;
+        e.streakMinMinutes = parseInt($("streak-min-input").value) || 30;
+        e.weekStartsOn = $("week-start-select").value || "mon";
         let t = [];
         document.querySelectorAll(".goal-cb-cat:checked").forEach(e => t.push(e.value)), e.goalCats = t.length ? t : ["productivity", "learning"], await sSync({
             settings: e
@@ -1557,14 +1550,15 @@ async function renderOverview() {
         s[e] = t.sites || {}, Object.keys(t).forEach(e => {
             "sites" === e ? Object.entries(t.sites || {}).forEach(([e, t]) => i.sites[e] = (i.sites[e] || 0) + t) : "number" == typeof t[e] && (i[e] = (i[e] || 0) + t[e])
         })
-    }), $("an-total") && ($("an-total").textContent = fmt(allCats().reduce((e, t) => e + (i[t] || 0), 0))), $("an-st") && ($("an-st").textContent = fmt(i.productivity || 0)), $("an-lrn") && ($("an-lrn").textContent = fmt(i.learning || 0)), $("an-prod") && ($("an-prod").textContent = fmt(i.communication || 0)), $("an-dt") && ($("an-dt").textContent = fmt(i.distraction || 0));
-    var o = (await msg("STATS_GET_ALL"))?.daily || {},
-        r = 0,
-        l = 0;
-    Object.keys(o).forEach(e => {
-        var t = Object.keys(o[e]).filter(t => "sites" !== t && "number" == typeof o[e][t]).reduce((t, a) => t + (o[e][a] || 0), 0);
-        t > 0 && (r += t, l++)
-    }), $("at-total") && ($("at-total").textContent = fmt(r)), $("at-daily-avg") && ($("at-daily-avg").textContent = fmt(l > 0 ? Math.round(r / l) : 0)), $("at-days") && ($("at-days").textContent = l);
+    }), $("an-total") && ($("an-total").textContent = fmt(allCats().reduce((e, t) => e + (i[t] || 0), 0))), $("an-prod") && ($("an-prod").textContent = fmt(i.productivity || 0)), $("an-lrn") && ($("an-lrn").textContent = fmt(i.learning || 0)), $("an-comms") && ($("an-comms").textContent = fmt(i.communication || 0)), $("an-dist") && ($("an-dist").textContent = fmt(i.distraction || 0));
+    const totalsResp = await msg("STATS_GET_ALLTIME_TOTALS");
+    const totalDaysResp = await msg("STATS_GET_TOTAL_DAYS");
+    const totals = totalsResp?.allTimeTotals || {};
+    const r = Object.values(totals).reduce((sum, secs) => sum + secs, 0);
+    const l = totalDaysResp?.totalDays || 1;
+    $("at-total") && ($("at-total").textContent = fmt(r));
+    $("at-daily-avg") && ($("at-daily-avg").textContent = fmt(l > 0 ? Math.round(r / l) : 0));
+    $("at-days") && ($("at-days").textContent = l);
     var c = await msg("STATS_GET_STREAK"),
         d = c && c.streak || {};
     $("an-bs") && ($("an-bs").textContent = (d.bestStreak || 0) + "d"), $("an-bd") && ($("an-bd").textContent = d.bestDay ? new Date(d.bestDay + "T00:00:00").toLocaleDateString("en-US", {
@@ -1798,7 +1792,7 @@ async function renderTopSites() {
                 var n = `<select class="sel" data-domain="${e[0]}" style="padding:4px 8px;font-size:12px;width:100% !important;box-sizing:border-box;">`;
                 allCats().forEach(e => n += `<option value="${e}"${e === t.cat ? " selected" : ""}>${catEmoji(e)} ${catLabel(e, !1)}</option>`), n += "</select>";
 
-                a.innerHTML = `\n      <span class="dom" style="display:flex; align-items:center; gap:8px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">\n        ${getFav(e[0])}\n        <span style="color:var(--tx); font-weight:800; font-size:15px; margin-left:4px;">${e[0]}</span>\n        ${t.auto ? '<span style="font-size:11px;color:var(--tx3);" title="Auto-categorized">✨</span>' : ""}\n      </span>\n      <div style="display:flex; align-items:center; gap:10px; justify-content:flex-start; margin-left: -20px;">\n        <button class="top-site-pin-btn pinned-${isPinned}" data-domain="${e[0]}" title="${isPinned ? 'Unpin site' : 'Pin site to top'}" style="background:none; border:none; cursor:pointer; font-size:13px; padding:4px;">\n          📌\n        </button>\n        <a href="https://${e[0]}" class="top-site-visit-btn" target="_blank" title="Visit site" style="font-size:12px; text-decoration:none; display:inline-flex; align-items:center;">\n          ↗️\n        </a>\n      </div>\n      ${n}\n      <span class="stat-pill">${fmt(e[1])}</span>\n      <span class="stat-pill">~${fmt(Math.round(e[1] / l))}</span>\n    `;
+                a.innerHTML = `\n      <span class="dom" style="display:flex; align-items:center; gap:8px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">\n        ${getFav(e[0])}\n        <span style="color:var(--tx); font-weight:800; font-size:15px; margin-left:4px;">${e[0]}</span>\n        ${t.auto ? '<span style="font-size:11px;color:var(--tx3);" title="Auto-categorized">✨</span>' : ""}\n      </span>\n      <div style="display:flex; align-items:center; gap:10px; justify-content:flex-start; margin-left: -12px;">\n        <button class="top-site-pin-btn pinned-${isPinned}" data-domain="${e[0]}" title="${isPinned ? 'Unpin site' : 'Pin site to top'}" style="background:none; border:none; cursor:pointer; padding:4px; display:inline-flex; align-items:center; justify-content:center; color:${isPinned ? 'var(--tx)' : 'var(--tx3)'}; transition: color 0.2s;">\n          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>\n        </button>\n        <a href="https://${e[0]}" class="top-site-visit-btn" target="_blank" title="Visit site" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; color:var(--tx3); padding:4px; transition: color 0.2s;">\n          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>\n        </a>\n      </div>\n      ${n}\n      <span class="stat-pill">${fmt(e[1])}</span>\n      <span class="stat-pill">~${fmt(Math.round(e[1] / l))}</span>\n    `;
 
                 a.querySelector(".sel")?.addEventListener("change", async function () {
                     await tagSite(this.getAttribute("data-domain"), this.value), loadAnalytics()
@@ -1907,7 +1901,9 @@ async function loadDashboardStreak() {
 }
 async function loadWeeklyGoalSettings() {
     var e = (await gSync(["settings"])).settings || {};
-    $("weekly-goal-input") && ($("weekly-goal-input").value = e.weeklyGoalHours || 0), $("streak-min-input") && ($("streak-min-input").value = e.streakMinMinutes || 30);
+    $("weekly-goal-input") && ($("weekly-goal-input").value = e.weeklyGoalHours || 0);
+    $("streak-min-input") && ($("streak-min-input").value = e.streakMinMinutes || 30);
+    $("week-start-select") && ($("week-start-select").value = e.weekStartsOn || "mon");
     let t = e.goalCats || ["productivity", "learning"];
     document.querySelectorAll(".goal-cb-cat").forEach(e => {
         e.checked = t.includes(e.value)
@@ -1941,7 +1937,7 @@ async function loadExtendedSettings(preloadedSettings) {
             $("pin-status-badge").textContent = "🔒 PIN Active", $("pin-status-badge").style.color = "var(--green)";
             var t = $("pin-status-badge").parentElement;
             t.style.display = "flex", t.style.justifyContent = "space-between", t.style.alignItems = "center", (a = document.getElementById("pin-actions-div")) || ((a = document.createElement("div")).id = "pin-actions-div", a.style.display = "flex", a.style.gap = "12px", $("btn-change-pin") && a.appendChild($("btn-change-pin")), $("btn-remove-pin") && a.appendChild($("btn-remove-pin")), t.appendChild(a)), $("granular-locks") && ($("granular-locks").style.display = "block"), $("granular-locks-overlay") && ($("granular-locks-overlay").style.display = "none"), $("pin-setup-box").style.display = "none", $("pin-manage-box").style.display = "flex";
-            $("lock-dash") && ($("lock-dash").checked = !!e.lockDash);
+
             $("lock-stop") && ($("lock-stop").checked = !1 !== e.lockStop);
             $("lock-rules") && ($("lock-rules").checked = !1 !== e.lockRules);
             $("lock-freetime") && ($("lock-freetime").checked = !1 !== e.lockFreetime);
@@ -2135,30 +2131,47 @@ async function loadFocusHistory() {
         t = e?.focusHistory || [],
         a = $("history-list");
     if (a) {
-        if (!t.length) return a.innerHTML = '<div class="empty" style="padding:40px 10px">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3; margin-bottom:16px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>\n      <p>No focus sessions yet.</p>\n      <button class="bp" id="btn-empty-start-focus" style="margin-top:16px;padding:10px 24px;">▶ Start First Session</button>\n    </div>', void ($("btn-empty-start-focus") && $("btn-empty-start-focus").addEventListener("click", () => {
+        if (!t.length) return a.innerHTML = '<div class="empty" style="padding:40px 10px">\n      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3; margin-bottom:16px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>\n      <p>No focus sessions yet.</p>\n      <button class="bp" id="btn-empty-start-focus" style="margin-top:16px;padding:10px 24px;">🚀 Start First Session</button>\n    </div>', void ($("btn-empty-start-focus") && $("btn-empty-start-focus").addEventListener("click", () => {
             $("btn-fs").click()
         }));
-        var n = {};
-        t.forEach(e => {
-            n[e.date] || (n[e.date] = []), n[e.date].push(e)
-        }), a.innerHTML = "", Object.keys(n).sort().reverse().forEach(e => {
+        a.innerHTML = "";
+        let histWithIdx = t.map((item, idx) => { item._idx = idx; return item; });
+        histWithIdx.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0)).forEach(e => {
             var t = document.createElement("div");
-            t.style.cssText = "font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin:16px 0 8px;padding:0 4px", t.textContent = new Date(e + "T00:00:00").toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric"
-            }), a.appendChild(t), n[e].forEach(e => {
-                var t = document.createElement("div");
-                const presetMeta = {
-                    pomodoro: { emoji: "🍅", name: "Pomodoro" },
-                    deep_work: { emoji: "🧠", name: "Deep Work" },
-                    sprint: { emoji: "⚡", name: "Short Sprint" },
-                    custom: { emoji: "⚙️", name: "Custom" }
-                };
-                const pObj = presetMeta[e.presetId] || { emoji: "⏱", name: "Focus" };
-                t.style.cssText = "display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg3);border:1px solid var(--bd);border-radius:12px;margin-bottom:8px;transition:var(--trans)", t.onmouseover = () => t.style.borderColor = "var(--bd2)", t.onmouseout = () => t.style.borderColor = "var(--bd)", t.innerHTML = `<div style="font-size:20px" title="${pObj.name}">${pObj.emoji}</div><div style="flex:1"><div class="num" style="font-size:14px;font-weight:800;color:var(--tx)">${e.startedAt ? new Date(e.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"} <span style="font-size:12px;font-weight:600;color:var(--tx2);margin-left:6px;background:var(--bg4);padding:2px 6px;border-radius:6px;border:1px solid var(--bd2)">${pObj.name}</span></div><div class="num" style="font-size:12px;color:var(--tx2);margin-top:2px;font-weight:600">${e.cyclesCompleted || 0} cycles</div></div><div class="num" style="font-family:monospace;font-size:16px;font-weight:800;color:var(--green)">${Math.round(e.durationMins || 0)}m</div>`, a.appendChild(t)
-            })
-        })
+            const presetMeta = {
+                pomodoro: { emoji: "🍅", name: "Pomodoro" },
+                deep_work: { emoji: "🧠", name: "Deep Work" },
+                sprint: { emoji: "⚡", name: "Short Sprint" },
+                custom: { emoji: "🌊", name: "Flow" }
+            };
+            const pObj = presetMeta[e.presetId] || { emoji: "🎯", name: "Focus" };
+            const dateStr = new Date(e.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+            const timeStr = e.startedAt ? new Date(e.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—";
+            t.style.cssText = "display:flex;align-items:center;padding:14px 16px;background:var(--bg3);border:1px solid var(--bd);border-radius:12px;margin-bottom:8px;transition:var(--trans)";
+            t.onmouseover = () => t.style.borderColor = "var(--bd2)";
+            t.onmouseout = () => t.style.borderColor = "var(--bd)";
+            t.innerHTML = `
+              <div style="font-size:20px; width:36px;" title="${pObj.name}">${pObj.emoji}</div>
+              <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:3px; min-width:0; padding-right:8px;">
+                <div style="font-size:13px; font-weight:800; color:var(--tx); line-height:1.2;">${dateStr} <span style="opacity:0.5; font-weight:500; margin-left:2px; white-space:nowrap;">${timeStr}</span></div>
+                <div style="font-size:12px; font-weight:600; color:var(--tx2); line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${e.isSchedule ? "Scheduled Session" : pObj.name}</div>
+              </div>
+              <div style="text-align:right; display:flex; flex-direction:column; justify-content:center; padding-left:8px;">
+                <div class="num" style="font-size:14px; font-weight:800; color:var(--tx);">${e.durationMins || 0}<span style="font-size:10px; opacity:0.6; margin-left:2px;">m</span></div>
+                ${e.cyclesCompleted && !e.isSchedule ? `<div class="num" style="font-size:12px; font-weight:600; color:var(--tx3);">${e.cyclesCompleted} cycle${e.cyclesCompleted === 1 ? '' : 's'}</div>` : ``}
+              </div>
+              <button class="bic del-fs" style="margin-left:16px; background:transparent; border-color:transparent; color:var(--tx3);" data-idx="${e._idx}">✕</button>
+            `;
+            a.appendChild(t)
+        });
+        a.querySelectorAll(".del-fs").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const idx = parseInt(btn.getAttribute("data-idx"));
+                await msg("DELETE_FOCUS_SESSION", { idx: idx });
+                if (typeof toast === "function") toast("Session deleted", "ok");
+                loadFocusHistory();
+            });
+        });
     }
 } ["tog-ov-prod", "tog-ov-lrn", "tog-ov-dist", "tog-ov-comm", "tog-ov-unc"].forEach(e => {
     $(e) && $(e).addEventListener("change", renderOverview)
@@ -2176,7 +2189,7 @@ async function loadFocusHistory() {
     }
 }), $("btn-save-set") && $("btn-save-set").addEventListener("click", async () => {
     var e = (await gSync(["settings"])).settings || {};
-    e.passcodeEnabled = $("tog-pc")?.checked || !1, e.funnyBlocked = !1 !== $("tog-fun")?.checked, e.customBlockMsg = $("block-msg")?.value?.trim() || "", e.tabLimit = parseInt($("tab-limit-input")?.value) || 0, e.timeWarningEnabled = !1 !== $("tog-time-warn")?.checked, e.timeWarningSecs = parseInt($("time-warn-secs")?.value) || 60, e.showBadge = !1 !== $("tog-badge")?.checked, e.customNewTab = !0 === $("tog-newtab")?.checked, e.idleTimeout = parseInt($("idle-timeout-sel")?.value) || 60, e.welcomeBackThresh = parseInt($("welcome-back-thresh-sel")?.value) || 10, e.passcodeHash && (e.lockDash = $("lock-dash")?.checked || !1, e.lockStop = !1 !== $("lock-stop")?.checked, e.lockRules = !1 !== $("lock-rules")?.checked, e.lockFreetime = !1 !== $("lock-freetime")?.checked, e.lockFocusPresets = !$("lock-focus-presets") || $("lock-focus-presets").checked, e.lockFocusScheds = !$("lock-focus-scheds") || $("lock-focus-scheds").checked, e.lockDanger = !1 !== $("lock-danger")?.checked, e.lockTweaks = !1 !== $("lock-tweaks")?.checked);
+    e.passcodeEnabled = $("tog-pc")?.checked || !1, e.funnyBlocked = !1 !== $("tog-fun")?.checked, e.customBlockMsg = $("block-msg")?.value?.trim() || "", e.tabLimit = parseInt($("tab-limit-input")?.value) || 0, e.timeWarningEnabled = !1 !== $("tog-time-warn")?.checked, e.timeWarningSecs = parseInt($("time-warn-secs")?.value) || 60, e.showBadge = !1 !== $("tog-badge")?.checked, e.customNewTab = !0 === $("tog-newtab")?.checked, e.idleTimeout = parseInt($("idle-timeout-sel")?.value) || 60, e.welcomeBackThresh = parseInt($("welcome-back-thresh-sel")?.value) || 10, e.passcodeHash && (e.lockStop = !1 !== $("lock-stop")?.checked, e.lockRules = !1 !== $("lock-rules")?.checked, e.lockFreetime = !1 !== $("lock-freetime")?.checked, e.lockFocusPresets = !$("lock-focus-presets") || $("lock-focus-presets").checked, e.lockFocusScheds = !$("lock-focus-scheds") || $("lock-focus-scheds").checked, e.lockDanger = !1 !== $("lock-danger")?.checked, e.lockTweaks = !1 !== $("lock-tweaks")?.checked);
     await sSync({
         settings: e
     }), toast("Settings saved", "ok"), loadExtendedSettings(), msg("UPDATE_IDLE")
@@ -2187,7 +2200,7 @@ async function loadFocusHistory() {
     if (6 !== e.length || !/^\d{6}$/.test(e)) return a.textContent = "PIN must be exactly 6 digits", void (a.style.color = "var(--red)");
     if (e !== t) return a.textContent = "PINs do not match", void (a.style.color = "var(--red)");
     var n = (await gSync(["settings"])).settings || {};
-    n.passcodeHash || (n.lockDash = !1, n.lockSettings = !1, n.lockStop = !0, n.lockRules = !0, n.lockFreetime = !0, n.lockDanger = !0, n.lockTweaks = !0, n.lockFocusScheds = !0, n.lockFocusPresets = !0), n.passcodeHash = await hashPin(e), n.passcodeEnabled = !0, await sSync({
+    n.passcodeHash || (n.lockSettings = !1, n.lockStop = !0, n.lockRules = !0, n.lockFreetime = !0, n.lockDanger = !0, n.lockTweaks = !0, n.lockFocusScheds = !0, n.lockFocusPresets = !0), n.passcodeHash = await hashPin(e), n.passcodeEnabled = !0, await sSync({
         settings: n
     }), $("pin1").value = "", $("pin2").value = "", a.textContent = "", toast("PIN saved & active", "ok"), loadExtendedSettings()
 }), $("btn-remove-pin") && $("btn-remove-pin").addEventListener("click", async () => {
@@ -2202,7 +2215,6 @@ async function loadFocusHistory() {
 }), $("btn-rst-stats") && $("btn-rst-stats").addEventListener("click", async () => {
     if (!(await promptPinIfEnabled("lockDanger"))) return;
     if (!confirm("Delete ALL statistics? This cannot be undone.")) return;
-    // FF v4.4: clear Dexie store (legacy chrome.storage.local.daily was a no-op after migration)
     await msg("STATS_RESET_ALL");
     await sLocal({ daily: {} });
     toast("Stats reset", "ok");
@@ -2224,22 +2236,25 @@ var _origRF = renderFocus,
     _focusTick = null;
 
 function startSmoothFocusTick(e) {
-    _focusTick && clearInterval(_focusTick), e && e.active && !e.paused && e.phaseEndsAt && (_focusTick = setInterval(function () {
+    if (_focusTick) clearInterval(_focusTick);
+    if (!e || !e.active || e.paused || !e.phaseEndsAt) return;
+    const i = document.createElement("canvas");
+    i.width = 32, i.height = 32;
+    const s = i.getContext("2d");
+    _focusTick = setInterval(function () {
         var t = Math.max(0, Math.round((e.phaseEndsAt - Date.now()) / 1e3)),
             a = "work" === e.phase,
             n = e.fullDuration || (a ? 1500 : "long_break" === e.phase ? 900 : 300);
         $("frf") && $("frf").setAttribute("stroke-dashoffset", (FCIRC * Math.max(0, 1 - t / n)).toFixed(1)), $("ftb") && ($("ftb").textContent = fmtT(t));
-        const i = document.createElement("canvas");
-        i.width = 32, i.height = 32;
-        const s = i.getContext("2d"),
-            o = document.documentElement.classList.contains("light");
+        s.clearRect(0, 0, 32, 32);
+        const o = document.documentElement.classList.contains("light");
         s.fillStyle = o ? "#f1f5f9" : "#121212", s.beginPath(), s.arc(16, 16, 16, 0, 2 * Math.PI), s.fill(), s.strokeStyle = "#2E2E2E", s.lineWidth = 4, s.beginPath(), s.arc(16, 16, 12, 0, 2 * Math.PI), s.stroke(), s.strokeStyle = a ? "#05D581" : "#F6B846", s.lineCap = "round", s.beginPath(), s.arc(16, 16, 12, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * (1 - t / n)), s.stroke();
         let r = document.getElementById("dynamic-favicon");
         r && (r.href = i.toDataURL()), t <= 0 && (clearInterval(_focusTick), _focusTick = null, setTimeout(async () => {
             var e = await msg("FOCUS_GET_STATE");
             renderFocus(e?.focusState, await getActiveWorkMins()), loadFocusHistory()
         }, 1500))
-    }, 1e3))
+    }, 1e3);
 }
 renderFocus = function (e, t) {
     if (_origRF(e, t), e && e.active && !e.paused && e.phaseEndsAt) startSmoothFocusTick(e);
@@ -2355,7 +2370,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
         { id: "pomodoro", emoji: "🍅", name: "Pomodoro", work: 25, brk: 5, long: 15, longBrk: 15, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"], notify: true, autoStart: true },
         { id: "deep-work", emoji: "🧠", name: "Deep Work", work: 90, brk: 15, long: 30, longBrk: 30, cycles: 2, strict: false, cats: ["distraction", "communication", "uncategorized"], blockCats: ["distraction", "communication", "uncategorized"], notify: true, autoStart: true },
         { id: "short-sprint", emoji: "⚡", name: "Short Sprint", work: 15, brk: 3, long: 10, longBrk: 10, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"], notify: true, autoStart: true },
-        { id: "custom", emoji: "⚙️", name: "Custom", work: 25, brk: 5, long: 15, longBrk: 15, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"], notify: true, autoStart: true },
+        { id: "custom", emoji: "🌊", name: "Flow", work: 25, brk: 5, long: 15, longBrk: 15, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"], notify: true, autoStart: true },
     ];
     const CATS = [
         { v: "distraction", l: "⚡ Distraction" },
@@ -2367,7 +2382,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
 
     async function loadStore() {
         try {
-            const localRes = await gLocal(["focusPresets"]);
+            const localRes = await gSync(["focusPresets"]);
             const syncRes = await gSync(["settings"]);
             const presetsList = localRes.focusPresets;
             const activeId = (syncRes.settings && syncRes.settings.activePresetId) || "pomodoro";
@@ -2379,9 +2394,13 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
                     if (item.longBrk !== undefined && item.long === undefined) item.long = item.longBrk;
                     if (item.cats !== undefined && item.blockCats === undefined) item.blockCats = item.cats;
                     if (item.blockCats !== undefined && item.cats === undefined) item.cats = item.blockCats;
+                    if (item.cats === undefined && item.blockCats === undefined) {
+                        item.cats = ["distraction"];
+                        item.blockCats = ["distraction"];
+                    }
                 });
                 if (!presetsList.some(x => x.id === "custom")) {
-                    presetsList.push({ id: "custom", emoji: "⚙️", name: "Custom", work: 25, brk: 5, long: 15, longBrk: 15, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"] });
+                    presetsList.push({ id: "custom", emoji: "🌊", name: "Flow", work: 25, brk: 5, long: 15, longBrk: 15, cycles: 4, strict: false, cats: ["distraction"], blockCats: ["distraction"] });
                 }
                 return { list: presetsList, activeId, editingId: "pomodoro" };
             }
@@ -2389,12 +2408,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
         return { list: DEFAULT_PRESETS.map((p) => ({ ...p })), activeId: "pomodoro", editingId: "pomodoro" };
     }
     function saveStore(s) {
-        sLocal({ focusPresets: s.list });
-        gSync(["settings"]).then(res => {
-            const syncObj = res.settings || {};
-            syncObj.activePresetId = s.activeId;
-            sSync({ settings: syncObj });
-        }).catch(() => {});
+        syncPresetsToSW(s);
     }
 
     async function syncPresetsToSW(s) {
@@ -2409,37 +2423,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
         const store = await loadStore();
         let state = store;
 
-        // Load manual sync settings and merge into custom preset before rendering
-        try {
-            const syncObj = (await gSync(["settings"])).settings || {};
-            const customPreset = state.list.find(x => x.id === "custom");
-            if (customPreset) {
-                customPreset.work = syncObj.focusWork ?? 25;
-                customPreset.brk = syncObj.focusBreak ?? 5;
-                customPreset.long = syncObj.focusLongBreak ?? 15;
-                customPreset.longBrk = syncObj.focusLongBreak ?? 15;
-                customPreset.cycles = syncObj.focusCycles ?? 4;
-                customPreset.cats = syncObj.focusBlockCats || ["distraction"];
-                customPreset.blockCats = syncObj.focusBlockCats || ["distraction"];
-                saveStore(state);
-            }
-        } catch (_) { }
 
-        function getEditing() {
-            return state.list.find((p) => p.id === state.editingId) || state.list[0];
-        }
-
-        function syncHiddenInputs() {
-            const a = state.list.find((p) => p.id === state.activeId) || state.list[0];
-            const sw = $$("sw");
-            const sb = $$("sb");
-            const sl = $$("sl");
-            const sc = $$("sc");
-            if (sw) sw.value = a.work;
-            if (sb) sb.value = a.brk;
-            if (sl) sl.value = a.long;
-            if (sc) sc.value = a.cycles;
-        }
 
         function renderCards() {
             const switchesEl = $$("preset-quick-switches");
@@ -2467,9 +2451,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
           text-align: center;
         `;
 
-                const emojiOrIcon = p.id === "custom"
-                    ? `<svg viewBox="0 0 20 20" fill="currentColor" style="width:24px; height:24px; color:var(--tx2); margin-bottom: 6px;"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>`
-                    : `<div style="font-size: 24px; margin-bottom: 6px;">${p.emoji}</div>`;
+                const emojiOrIcon = `<div style="font-size: 24px; margin-bottom: 6px;">${p.emoji}</div>`;
 
                 card.innerHTML = `
           ${emojiOrIcon}
@@ -2518,8 +2500,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
                     renderAll();
 
                     syncPresetsToSW(state).then(() => {
-                        const btn = document.querySelector("#btn-save-focus");
-                        if (btn) btn.click();
+                        msg("TRIGGER_DNR_UPDATE");
                         if (typeof loadFocusUI === "function") loadFocusUI();
                         if (typeof toast === "function") toast(`Activated preset: ${p.name}`, "ok");
                     });
@@ -2536,8 +2517,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
                     renderAll();
 
                     syncPresetsToSW(state).then(() => {
-                        const btnSave = document.querySelector("#btn-save-focus");
-                        if (btnSave) btnSave.click();
+                        msg("TRIGGER_DNR_UPDATE");
 
                         if (typeof loadFocusUI === "function") loadFocusUI();
 
@@ -2567,21 +2547,22 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
             const p = state.list.find((x) => x.id === presetId);
             if (!p) return;
 
-            const modalHeaderIcon = p.id === "custom"
-                ? `<svg viewBox="0 0 20 20" fill="currentColor" style="width:24px; height:24px; color:var(--tx);"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>`
-                : `<span style="font-size:24px;">${p.emoji}</span>`;
+            const modalHeaderIcon = `<span style="font-size:24px;">${p.emoji}</span>`;
 
             const overlay = document.createElement("div");
             overlay.id = "ff-preset-edit-modal";
             overlay.className = "overlay";
             overlay.innerHTML = `
         <div class="card" style="width:100%; max-width:460px; padding:32px; display:flex; flex-direction:column; gap:20px; max-height: 90vh; overflow-y: auto;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
             <div style="font-size:20px; font-weight:800; color:var(--tx); display:flex; align-items:center; gap:10px;">
               ${modalHeaderIcon}
               <span>Edit Preset</span>
             </div>
-            <button id="ep-close" style="background:none; border:none; color:var(--tx3); font-size:20px; cursor:pointer; padding:4px;">✕</button>
+            <div style="display:flex; gap:12px; align-items:center;">
+              <button class="bp" id="ep-save" style="padding:6px 16px; font-size:14px;">✓ Save Changes</button>
+              <button class="bic del" id="ep-close" style="width:32px; height:32px; font-size:16px; background:transparent; border:none; color:var(--tx2); cursor:pointer;">✕</button>
+            </div>
           </div>
           
           <div class="srow">
@@ -2608,20 +2589,13 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
             </div>
           </div>
 
-          <div class="trow" style="padding:16px 0; border-top:1px solid var(--bd); border-bottom:1px solid var(--bd);">
-            <div style="flex:1;">
-              <div class="tlbl" style="font-size:14px; font-weight:700;">🔐 Strict Allowlist Mode</div>
-              <div class="tdesc" style="font-size:12px; color:var(--tx2); margin-top:2px;">Block <em>everything</em> except your Allowlist. Categories below will be ignored.</div>
-            </div>
-            <label class="tog">
-              <input type="checkbox" id="ep-strict" ${p.strict ? 'checked' : ''}/>
-              <span class="ttrack"></span>
-            </label>
-          </div>
 
           <div class="trow" style="padding:16px 0; border-top:none; border-bottom:1px solid var(--bd); margin-top:-20px;">
             <div style="flex:1;">
-              <div class="tlbl" style="font-size:14px; font-weight:700;">🔔 Enable Notifications</div>
+              <div class="tlbl" style="font-size:14px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                Enable Notifications
+              </div>
               <div class="tdesc" style="font-size:12px; color:var(--tx2); margin-top:2px;">Receive push alerts when focus periods or breaks end.</div>
             </div>
             <label class="tog">
@@ -2632,7 +2606,10 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
 
           <div class="trow" style="padding:16px 0; border-top:none; border-bottom:1px solid var(--bd); margin-top:-20px;">
             <div style="flex:1;">
-              <div class="tlbl" style="font-size:14px; font-weight:700;">🔄 Auto-Start Next Cycle</div>
+              <div class="tlbl" style="font-size:14px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                Auto-Start Next Cycle
+              </div>
               <div class="tdesc" style="font-size:12px; color:var(--tx2); margin-top:2px;">Automatically transition to the next work cycle or break.</div>
             </div>
             <label class="tog">
@@ -2641,11 +2618,11 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
             </label>
           </div>
 
-          <div id="ep-cats-section" style="display: ${p.strict ? 'none' : 'block'};">
+          <div id="ep-cats-section" style="display: block;">
             <div class="slbl" style="margin-bottom:10px;">Categories to Block during focus</div>
             <div id="ep-cats-grid" class="c-checkbox-group" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
               ${CATS.map(c => {
-                const checked = p.cats.includes(c.v);
+                const checked = (p.cats || p.blockCats || []).includes(c.v);
                 return `
                   <label class="c-checkbox-lbl" style="padding:10px; font-size:13px; font-weight:700; margin:0;">
                     <input type="checkbox" value="${c.v}" ${checked ? 'checked' : ''}/>
@@ -2656,23 +2633,12 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
             </div>
           </div>
 
-          <div style="display:flex; gap:12px; margin-top:8px;">
-            <button class="bs" id="ep-cancel" style="flex:1; padding:14px;">Cancel</button>
-            <button class="bp" id="ep-save" style="flex:1; padding:14px; font-size:14px;">✓ Save Changes</button>
-          </div>
         </div>
       `;
             document.body.appendChild(overlay);
 
-            const strictCheckbox = overlay.querySelector("#ep-strict");
             const catsSection = overlay.querySelector("#ep-cats-section");
-
-            strictCheckbox.addEventListener("change", () => {
-                catsSection.style.display = strictCheckbox.checked ? "none" : "block";
-            });
-
             overlay.querySelector("#ep-close").addEventListener("click", () => overlay.remove());
-            overlay.querySelector("#ep-cancel").addEventListener("click", () => overlay.remove());
 
             overlay.querySelector("#ep-save").addEventListener("click", async () => {
                 const nameVal = overlay.querySelector("#ep-name").value.trim() || p.name;
@@ -2685,40 +2651,6 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
                 const notifyVal = overlay.querySelector("#ep-notify").checked;
                 const autoStartVal = overlay.querySelector("#ep-autostart").checked;
 
-                let strictVal = strictCheckbox.checked;
-                if (strictVal) {
-                    // Gate: require at least 1 site in allowList before enabling strict mode
-                    const _al = await gLocal(["allowList"]);
-                    const _allowArr = _al.allowList || [];
-                    if (_allowArr.length === 0) {
-                        strictCheckbox.checked = false;
-                        // Show modal to add allow sites
-                        showStrictAllowModal(state, () => p, saveStore, () => {
-                            // callback
-                            p.strict = true;
-                            p.name = nameVal;
-                            p.work = workVal;
-                            p.brk = brkVal;
-                            p.long = longVal;
-                            p.longBrk = longVal;
-                            p.cycles = cycVal;
-                            p.notify = notifyVal;
-                            p.autoStart = autoStartVal;
-                            p.cats = []; // ignore cats in strict
-                            p.blockCats = [];
-                            saveStore(state);
-                            renderAll();
-                            if (p.id === state.activeId) {
-                                syncHiddenInputs();
-                                const btn = document.querySelector("#btn-save-focus");
-                                if (btn) btn.click();
-                                if (typeof loadFocusUI === "function") loadFocusUI();
-                            }
-                            overlay.remove();
-                        });
-                        return;
-                    }
-                }
 
                 // Gather categories
                 const checkedCats = Array.from(overlay.querySelectorAll("#ep-cats-grid input:checked")).map((cb) => cb.value);
@@ -2729,24 +2661,12 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
                 p.long = longVal;
                 p.longBrk = longVal;
                 p.cycles = cycVal;
-                p.strict = strictVal;
                 p.notify = notifyVal;
                 p.autoStart = autoStartVal;
-                p.cats = strictVal ? [] : checkedCats;
-                p.blockCats = strictVal ? [] : checkedCats;
+                p.cats = checkedCats;
+                p.blockCats = checkedCats;
 
-                // Bidirectional sync: if this is the Custom preset, save directly to chrome settings!
-                if (p.id === "custom") {
-                    try {
-                        const syncObj = (await gSync(["settings"])).settings || {};
-                        syncObj.focusWork = workVal;
-                        syncObj.focusBreak = brkVal;
-                        syncObj.focusLongBreak = longVal;
-                        syncObj.focusCycles = cycVal;
-                        syncObj.focusBlockCats = checkedCats;
-                        await sSync({ settings: syncObj });
-                    } catch (_) { }
-                }
+
 
                 saveStore(state);
                 renderAll();
@@ -2754,9 +2674,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
                 await syncPresetsToSW(state);
 
                 if (p.id === state.activeId) {
-                    syncHiddenInputs();
-                    const btn = document.querySelector("#btn-save-focus");
-                    if (btn) btn.click();
+                    msg("TRIGGER_DNR_UPDATE");
                     if (typeof loadFocusUI === "function") loadFocusUI();
                 }
 
@@ -2767,7 +2685,6 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
 
         function renderAll() {
             renderCards();
-            syncHiddenInputs();
             applyLockUI();
         }
 
@@ -2873,112 +2790,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
     }
 
 
-    // ---------- Strict Mode Allow-Site Modal ---------------------------
-    function showStrictAllowModal(state, getEditing, saveStore, renderAll) {
-        // Remove old modal if re-opened
-        const old = document.getElementById("ff-strict-allow-modal");
-        if (old) old.remove();
 
-        const overlay = document.createElement("div");
-        overlay.id = "ff-strict-allow-modal";
-        overlay.className = "overlay";
-        overlay.innerHTML = `
-      <div class="card" style="width:100%;max-width:440px;padding:32px;text-align:center">
-        <div style="font-size:2.5rem;margin-bottom:12px">🔐</div>
-        <div style="font-size:20px;font-weight:800;margin-bottom:8px;color:var(--tx)">Strict Allowlist Mode</div>
-        <div style="font-size:14px;color:var(--tx2);margin-bottom:24px;line-height:1.6">
-          Strict mode blocks <strong>everything</strong> except sites in your Allowlist.<br>
-          Add at least one site to your Allowlist to continue.
-        </div>
-        <div style="display:flex;gap:10px;margin-bottom:20px">
-          <div style="flex:1;display:flex;background:var(--bg3);border:1px solid var(--bd2);border-radius:12px;overflow:hidden">
-            <span style="padding:12px 14px;background:var(--bg4);color:var(--tx3);font-weight:600;font-size:13px;border-right:1px solid var(--bd2)">https://</span>
-            <input type="text" id="ff-strict-domain-inp" class="inp" placeholder="pw.live" autocomplete="off" style="border:none;background:transparent;border-radius:0;padding-left:12px;font-size:14px"/>
-          </div>
-        </div>
-        <div id="ff-strict-added-list" style="display:none;text-align:left;margin-bottom:16px;padding:12px 16px;background:var(--bg3);border:1px solid var(--bd);border-radius:12px;max-height:120px;overflow-y:auto"></div>
-        <div style="display:flex;gap:12px">
-          <button class="bs" id="ff-strict-cancel" style="flex:1;padding:14px">Cancel</button>
-          <button class="bp" id="ff-strict-add" style="flex:1;padding:14px;font-size:14px">+ Add Site</button>
-        </div>
-        <button class="bp" id="ff-strict-enable" style="display:none;width:100%;margin-top:12px;padding:14px;font-size:14px;background:var(--green);color:#000">✓ Enable Strict Mode</button>
-      </div>
-    `;
-        document.body.appendChild(overlay);
-
-        const inp = document.getElementById("ff-strict-domain-inp");
-        const addedList = document.getElementById("ff-strict-added-list");
-        let addedDomains = [];
-
-        function renderAdded() {
-            if (addedDomains.length === 0) {
-                addedList.style.display = "none";
-                document.getElementById("ff-strict-enable").style.display = "none";
-                return;
-            }
-            addedList.style.display = "block";
-            document.getElementById("ff-strict-enable").style.display = "block";
-            addedList.innerHTML = addedDomains.map((d, i) =>
-                `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;${i > 0 ? 'border-top:1px solid var(--bd);' : ''}">
-          <span style="font-size:13px;font-weight:700;color:var(--green)">${d}</span>
-          <button class="ff-strict-rm" data-idx="${i}" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:14px;padding:2px 6px">✕</button>
-        </div>`
-            ).join("");
-            addedList.querySelectorAll(".ff-strict-rm").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    addedDomains.splice(parseInt(btn.dataset.idx), 1);
-                    renderAdded();
-                });
-            });
-        }
-
-        inp.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") document.getElementById("ff-strict-add").click();
-        });
-
-        document.getElementById("ff-strict-add").addEventListener("click", () => {
-            const raw = inp.value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-            if (!raw) return;
-            if (addedDomains.includes(raw)) { inp.value = ""; return; }
-            addedDomains.push(raw);
-            inp.value = "";
-            renderAdded();
-            inp.focus();
-        });
-
-        document.getElementById("ff-strict-cancel").addEventListener("click", () => {
-            overlay.remove();
-        });
-
-        document.getElementById("ff-strict-enable").addEventListener("click", async () => {
-            if (addedDomains.length === 0) return;
-            // Save added domains to allowList in chrome.storage.local
-            const _al = await gLocal(["allowList"]);
-            const _existing = _al.allowList || [];
-            const _merged = [...new Set([..._existing, ...addedDomains])];
-            await sLocal({ allowList: _merged });
-            await msg("TRIGGER_DNR_UPDATE");
-            // Update the module-level allowList so renderCombined picks it up
-            if (typeof allowList !== "undefined") {
-                allowList.length = 0;
-                _merged.forEach(d => allowList.push(d));
-            }
-            // Enable strict on the editing preset
-            const ed = getEditing();
-            ed.strict = true;
-            saveStore(state);
-            await syncPresetsToSW(state);
-            const strictCb = document.getElementById("pb-strict");
-            if (strictCb) strictCb.checked = true;
-            renderAll();
-            // Re-render the rule manager to show new allow entries
-            if (typeof renderCombined === "function") renderCombined();
-            overlay.remove();
-            if (typeof toast === "function") toast(addedDomains.length + " site(s) added to Allowlist — Strict mode enabled", "ok");
-        });
-
-        setTimeout(() => inp.focus(), 50);
-    }
 
     function init() {
         buildPresetBuilder();
@@ -3055,7 +2867,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
     .pb-card.is-active {
       border-color: var(--green) !important;
       background: var(--green-bg) !important;
-      box-shadow: 0 0 0 1px var(--green-bd), 0 8px 24px rgba(5,213,129,.12) !important;
+      box-shadow: 0 0 0 1px var(--green-bd), 0 4px 12px rgba(5,213,129,.05) !important;
     }
     .pb-card.is-editing {
       box-shadow: 0 0 0 2px var(--blue) !important;
@@ -3332,38 +3144,89 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
         return Math.random().toString(36).slice(2, 10);
     }
 
+    function formatTime12(timeStr) {
+        let [h, m] = timeStr.split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${h}:${m.toString().padStart(2, '0')} ${ampm}`;
+    }
+
     function renderSchedules(schedules) {
         const list = document.getElementById("focus-schedules-list");
         if (!list) return;
         list.innerHTML = "";
-        if (!schedules || !schedules.length) {
-            list.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 16px; background:rgba(255,255,255,0.01); border:1px dashed var(--bd); border-radius:16px; text-align:center; margin-bottom:8px;">
-          <div style="font-size:24px; margin-bottom:10px; filter:grayscale(0.2); opacity:0.85;">📅</div>
-          <div style="font-size:13px; font-weight:700; color:var(--tx2); margin-bottom:4px;">No Focus Schedules Yet</div>
-          <div style="font-size:11px; color:var(--tx3); max-width:240px; line-height:1.4;">Add a schedule below to automatically start Focus Mode during specific hours.</div>
-        </div>
-      `;
-            return;
+        const schedList = schedules || [];
+        for (let t = 0; t < 3; t++) {
+            const sched = schedList[t];
+            const a = document.createElement("div");
+            a.className = "free-hour-card";
+            a.style.cssText = `
+                width: 100%;
+                background: var(--bg3);
+                border-radius: 12px;
+                border: 1px solid var(--bd);
+                padding: 0 16px;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                height: 54px;
+                position: relative;
+                transition: all 0.2s ease;
+                box-sizing: border-box;
+            `;
+            if (!sched) {
+                // Empty slot: Add card!
+                a.style.borderStyle = "dashed";
+                a.style.cursor = "pointer";
+                a.style.justifyContent = "center";
+                a.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="font-size:18px; color:var(--tx3); font-weight:800;">+</div>
+                        <div style="font-size:13px; font-weight:800; color:var(--tx3);">Add Schedule</div>
+                    </div>
+                `;
+                a.addEventListener("mouseover", () => {
+                    a.style.borderColor = "var(--green)";
+                    a.querySelector("div > div:nth-child(2)").style.color = "var(--green)";
+                });
+                a.addEventListener("mouseout", () => {
+                    a.style.borderColor = "var(--bd)";
+                    a.querySelector("div > div:nth-child(2)").style.color = "var(--tx3)";
+                });
+                a.addEventListener("click", async () => {
+                    if (!(await promptPinIfEnabled("lockFocusScheds"))) return;
+                    if (typeof openScheduleModal === "function") openScheduleModal(schedList || []);
+                });
+            } else {
+                // Configured slot: Show details!
+                const activeDays = sched.days || [];
+                const isEveryday = DAY_LABELS.every((d, i) => activeDays.includes(i));
+                const isWeekdays = [1,2,3,4,5].every(i => activeDays.includes(i)) && !activeDays.includes(0) && !activeDays.includes(6);
+                let daysText = "";
+                if (isEveryday) daysText = "Everyday";
+                else if (isWeekdays) daysText = "Weekdays";
+                else daysText = DAY_LABELS.filter((d, i) => activeDays.includes(i)).map(d => d.substring(0,1)).join(", ");
+
+                a.innerHTML = `
+                    <div style="display:flex; flex-direction:column; justify-content:center;">
+                        <div style="font-size:13px; font-weight:800; color:var(--tx);">${sched.label || "Focus Session"}</div>
+                        <div style="font-size:10px; font-weight:700; color:var(--tx2); margin-top:2px; display:flex; gap:6px; align-items:center;">
+                            <span>${formatTime12(sched.startTime || "09:00")} - ${formatTime12(sched.endTime || "10:00")}</span>
+                            <span style="opacity:0.5">•</span>
+                            <span>${daysText}</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <label class="tog" style="transform:scale(0.85); transform-origin:right center; margin:0;"><input type="checkbox" class="sched-enabled-cb" data-idx="${t}" ${sched.enabled !== false ? "checked" : ""}><span class="ttrack"></span></label>
+                        <button class="preset-edit-btn edit-sched" data-idx="${t}" style="width:24px;height:24px;font-size:11px;background:var(--bg4);border:1px solid var(--bd2);color:var(--tx2);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
+                        <button class="preset-edit-btn rm-sched" data-idx="${t}" style="width:24px;height:24px;font-size:11px;background:var(--bg4);border:1px solid var(--bd2);color:var(--tx2);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+                    </div>
+                `;
+            }
+            list.appendChild(a);
         }
-        schedules.forEach((sched, idx) => {
-            const row = document.createElement("div");
-            row.style.cssText = "display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bd);border-radius:12px;padding:12px 16px;flex-wrap:wrap;";
-            const dayBadges = DAY_LABELS.map((d, i) =>
-                `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:800;${(sched.days || []).includes(i) ? 'background:var(--blue);color:#fff;' : 'background:var(--bg4);color:var(--tx3);'}">${d}</span>`
-            ).join("");
-            row.innerHTML = `
-        <label class="tog" style="flex-shrink:0"><input type="checkbox" class="sched-enabled-cb" data-idx="${idx}" ${sched.enabled !== false ? "checked" : ""}><span class="ttrack"></span></label>
-        <div style="flex:1;min-width:180px;">
-          <div style="font-weight:700;font-size:14px;color:var(--tx)">${sched.label || "Focus Session"}</div>
-          <div style="font-size:12px;color:var(--tx2);margin-top:2px;">${sched.startTime || "09:00"} – ${sched.endTime || "10:00"}</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${dayBadges}</div>
-        </div>
-        <button class="bic edit-sched" data-idx="${idx}" style="width:28px;height:28px;font-size:12px;flex-shrink:0" title="Edit">✎</button>
-        <button class="bic del rm-sched" data-idx="${idx}" style="width:28px;height:28px;font-size:12px;flex-shrink:0" title="Delete">✕</button>
-      `;
-            list.appendChild(row);
-        });
+
         list.querySelectorAll(".sched-enabled-cb").forEach(cb => {
             cb.addEventListener("change", async () => {
                 if (!(await promptPinIfEnabled("lockFocusScheds"))) {
@@ -3373,15 +3236,17 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
                 const sv = (await gSync(["settings"])).settings || {};
                 const scheds = sv.focusSchedules || [];
                 const i = parseInt(cb.getAttribute("data-idx"));
-                if (scheds[i]) { scheds[i].enabled = cb.checked; await sSync({ settings: { ...sv, focusSchedules: scheds } }); }
+                if (scheds[i]) {
+                    scheds[i].enabled = cb.checked;
+                    await sSync({ settings: { ...sv, focusSchedules: scheds } });
+                }
             });
         });
         list.querySelectorAll(".edit-sched").forEach(btn => {
             btn.addEventListener("click", async () => {
                 if (!(await promptPinIfEnabled("lockFocusScheds"))) return;
                 const sv = (await gSync(["settings"])).settings || {};
-                const scheds = sv.focusSchedules || [];
-                openScheduleModal(scheds, parseInt(btn.getAttribute("data-idx")));
+                openScheduleModal(sv.focusSchedules || [], parseInt(btn.getAttribute("data-idx")));
             });
         });
         list.querySelectorAll(".rm-sched").forEach(btn => {
@@ -3392,7 +3257,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
                 scheds.splice(parseInt(btn.getAttribute("data-idx")), 1);
                 await sSync({ settings: { ...sv, focusSchedules: scheds } });
                 renderSchedules(scheds);
-                if (typeof toast === "function") toast("Schedule removed", "ok");
+                if (typeof toast === "function") toast("Schedule deleted", "ok");
             });
         });
     }
@@ -3421,13 +3286,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
             <label class="slbl" style="margin-bottom:8px;display:block">Active Days</label>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">${DAY_CBS}</div>
           </div>
-          <div class="pb-strict-row" style="padding-top:16px;">
-            <div>
-              <div class="tlbl" style="font-size:14px">🔐 Strict Allowlist Mode</div>
-              <div class="tdesc">Block <em>everything</em> except your Allowlist. Category checkboxes below are ignored.</div>
-            </div>
-            <label class="tog"><input type="checkbox" id="nsched-strict" ${sched.strict ? "checked" : ""}/><span class="ttrack"></span></label>
-          </div>
+
           <div class="pb-cats-section" id="nsched-cats-sec">
             <div class="pb-cats-title" style="font-size:13px;font-weight:800;color:var(--tx2);text-transform:uppercase;margin-bottom:12px;">Categories to Block</div>
             <div class="pb-cats" id="nsched-cats" style="display:flex;flex-direction:column;gap:12px;">
@@ -3458,20 +3317,8 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
     `;
         document.body.appendChild(overlay);
 
-        const strictTog = overlay.querySelector("#nsched-strict");
         const catsSec = overlay.querySelector("#nsched-cats-sec");
         const catsInputs = catsSec.querySelectorAll("input");
-        strictTog.addEventListener("change", () => {
-            if (strictTog.checked) {
-                catsSec.style.opacity = "0.5";
-                catsSec.style.pointerEvents = "none";
-                catsInputs.forEach(cb => cb.disabled = true);
-            } else {
-                catsSec.style.opacity = "1";
-                catsSec.style.pointerEvents = "auto";
-                catsInputs.forEach(cb => cb.disabled = false);
-            }
-        });
 
         document.getElementById("nsched-cancel").addEventListener("click", () => overlay.remove());
         document.getElementById("nsched-save").addEventListener("click", async () => {
@@ -3480,7 +3327,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
             const endTime = document.getElementById("nsched-end").value;
             const days = Array.from(overlay.querySelectorAll(".nsched-day:checked")).map(cb => parseInt(cb.value));
             if (!days.length) { if (typeof toast === "function") toast("Select at least one day", "er"); return; }
-            const strict = document.getElementById("nsched-strict").checked;
+            const strict = false;
             const cats = Array.from(overlay.querySelectorAll("#nsched-cats input:checked")).map(cb => cb.value);
             const notify = parseInt(document.getElementById("nsched-notify-time").value) || 0;
             const sv = (await gSync(["settings"])).settings || {};
@@ -3497,8 +3344,6 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
             if (typeof toast === "function") toast(isEdit ? "Schedule updated" : "Schedule added", "ok");
         });
 
-        // Trigger initial strict mode logic
-        if (strictTog.checked) strictTog.dispatchEvent(new Event("change"));
     }
 
     async function init() {
@@ -3515,57 +3360,7 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
             });
         }
 
-        // --- Focus Allowlist Integration ---
-        async function renderFocusAllowlist() {
-            const container = document.getElementById("focus-allowlist-container");
-            if (!container) return;
-            const t = await chrome.storage.local.get(["allowList"]);
-            const list = t.allowList || [];
-            if (!list.length) {
-                container.innerHTML = `<div class="empty"><p style="margin:0; font-size:13px;">No allowed sites yet.</p></div>`;
-                return;
-            }
-            container.innerHTML = list.map(domain => `
-        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg3); padding:8px 12px; border-radius:8px; border:1px solid var(--bd);">
-          <span style="font-size:13px; font-weight:600; color:var(--tx); font-family:monospace;">${domain}</span>
-          <button class="bic del btn-del-allow" data-domain="${domain}" style="font-size:12px; opacity:0.6; cursor:pointer; background:none; border:none; color:var(--tx);">✕</button>
-        </div>
-      `).join("");
 
-            container.querySelectorAll(".btn-del-allow").forEach(btn => {
-                btn.addEventListener("click", async function () {
-                    const dom = this.getAttribute("data-domain");
-                    const cur = await chrome.storage.local.get(["allowList"]);
-                    const updated = (cur.allowList || []).filter(x => x !== dom);
-                    await chrome.storage.local.set({ allowList: updated });
-                    renderFocusAllowlist();
-                    if (typeof msg === "function") msg("TRIGGER_DNR_UPDATE");
-                });
-            });
-        }
-
-        renderFocusAllowlist();
-        const btnAllowAdd = document.getElementById("btn-focus-allow-add");
-        if (btnAllowAdd) {
-            btnAllowAdd.addEventListener("click", async () => {
-                const inp = document.getElementById("focus-allow-inp");
-                if (!inp) return;
-                const domain = inp.value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-                if (!domain) { if (typeof toast === "function") toast("Enter a valid domain", "er"); return; }
-                const t = await chrome.storage.local.get(["allowList"]);
-                let list = t.allowList || [];
-                if (list.includes(domain)) {
-                    if (typeof toast === "function") toast(domain + " is already allowed", "er");
-                } else {
-                    list.push(domain);
-                    await chrome.storage.local.set({ allowList: list });
-                    inp.value = "";
-                    renderFocusAllowlist();
-                    if (typeof toast === "function") toast(domain + " added to Focus Allowlist", "ok");
-                    if (typeof msg === "function") msg("TRIGGER_DNR_UPDATE");
-                }
-            });
-        }
     }
 
     if (document.readyState === "loading") {
@@ -3582,14 +3377,19 @@ if ($("file-import")) $("file-import").addEventListener("change", async (e) => {
 
     if (addRuleModal && btnOpenAddModal) {
         btnOpenAddModal.addEventListener("click", () => {
+            const qDomain = $("quick-domain") ? $("quick-domain").value.trim() : "";
+            const qRedir = $("quick-redir") ? $("quick-redir").value.trim() : "";
             if ($("m-id")) $("m-id").value = "";
-            if ($("cat-inp")) $("cat-inp").value = "";
-            if ($("cat-redir")) $("cat-redir").value = "";
-            if ($("cd-inp-domain")) $("cd-inp-domain").value = "";
-            if ($("mon-inp-domain")) $("mon-inp-domain").value = "";
+            if ($("cat-inp")) $("cat-inp").value = qDomain;
+            if ($("cat-redir")) $("cat-redir").value = qRedir;
+            if ($("cd-inp-domain")) $("cd-inp-domain").value = qDomain;
+            if ($("mon-inp-domain")) $("mon-inp-domain").value = qDomain;
             if ($("add-rule-modal-title")) $("add-rule-modal-title").textContent = "Add Block Rule";
             if (typeof switchRuleModalTab === "function") switchRuleModalTab("block");
             addRuleModal.classList.remove("hide");
+
+            if ($("quick-domain")) $("quick-domain").value = "";
+            if ($("quick-redir")) $("quick-redir").value = "";
         });
     }
     if (addRuleModal && btnOpenTagModal) {

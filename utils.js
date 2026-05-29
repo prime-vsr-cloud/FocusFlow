@@ -5,6 +5,10 @@ function $(e) {
     return document.getElementById(e)
 }
 
+function escHTML(e) {
+    return String(e).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
+}
+
 function fmt(e) {
     if (!e || e <= 0) return "0m";
     const m = Math.floor(e / 60);
@@ -27,8 +31,7 @@ async function hashPin(e) {
 }
 
 function getFav(e) {
-    const domain = String(e).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]
-        .replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+    const domain = escHTML(String(e).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]);
     const url = `https://www.google.com/s2/favicons?sz=32&domain=${domain}`;
     return `<img src="${url}" data-domain="${domain}" style="width:20px;height:20px;border-radius:4px;flex-shrink:0" />`;
 }

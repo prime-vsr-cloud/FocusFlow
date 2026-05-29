@@ -164,6 +164,39 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   outline:2px solid var(--green);outline-offset:2px;border-radius:8px;
 }
 
+/* universal, premium text input styling to avoid visual inconsistency */
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="password"],
+select,
+textarea {
+  background: var(--bg3);
+  border: 1px solid var(--bd2);
+  color: var(--tx);
+  border-radius: 10px;
+  outline: none;
+  transition: var(--trans);
+}
+input[type="text"]:hover,
+input[type="number"]:hover,
+input[type="date"]:hover,
+input[type="password"]:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--bd3);
+}
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--green) !important;
+  box-shadow: 0 0 0 3px var(--green-bg) !important;
+  background-color: var(--bg4) !important;
+}
+
 /* selection */
 ::selection{background:var(--green);color:#0a0a0a}
 
@@ -181,17 +214,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .display{font-family:var(--display-font);font-weight:400;letter-spacing:-.02em;line-height:1.05}
 .display em{font-style:italic;color:var(--green)}
 
-/* refined section / kpi */
-.kpi{padding:18px;border-radius:14px;background:var(--bg2);border:1px solid var(--bd);transition:var(--trans)}
-.kpi:hover{border-color:var(--bd2);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
-.kpi-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3);margin-bottom:8px}
-.kpi-value{font-size:26px;font-weight:800;letter-spacing:-.02em;color:var(--tx);font-variant-numeric:tabular-nums}
-.kpi-sub{font-size:12px;color:var(--tx2);margin-top:4px;font-weight:600}
 
-/* tab pill */
-.pill-tab{padding:8px 14px;border-radius:99px;border:1px solid var(--bd);background:transparent;color:var(--tx2);font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.02em;cursor:pointer;transition:var(--trans)}
-.pill-tab:hover{color:var(--tx);border-color:var(--bd2)}
-.pill-tab.act{background:var(--tx);color:var(--bg);border-color:var(--tx)}
 
 /* divider */
 .hr{height:1px;background:var(--bd);border:0;margin:16px 0}
@@ -279,15 +302,7 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 .pb-cat-row.is-disabled { opacity:.4; cursor:not-allowed; }
 .pb-cat-row input[type="checkbox"] { width:16px; height:16px; accent-color:var(--green); }
 .pb-actions { display:flex; gap:10px; padding-top:6px; }
-.pb-hidden { display:none !important; }
 
-.pb-lock-badge {
-  display:inline-flex; align-items:center; gap:6px;
-  padding:4px 10px; border-radius:99px;
-  background:var(--amber-bg); color:var(--amber);
-  border:1px solid rgba(246,184,70,.3);
-  font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
-}
 
 /* Site Manager pill tabs */
 .sm-tabs {
@@ -305,7 +320,7 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 .sm-pane { display:none; animation:fadeIn .25s ease; }
 .sm-pane.is-active { display:block; }
 
-.pb-goals-moved { margin-top:20px !important; }
+
 
 /* FF v6.7.0: loading spinner — used in dashboard render functions while data loads */
 .ff-loading{

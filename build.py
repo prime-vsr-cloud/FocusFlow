@@ -21,7 +21,7 @@ SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 DIST_DIR = os.path.join(os.path.dirname(SRC_DIR), "focusflow-dist")
 
 # Files/folders to skip copying
-SKIP = {"build.py", "node_modules", ".git", ".gitignore", "__pycache__"}
+SKIP = {"build.py", "node_modules", ".git", ".gitignore", "__pycache__", "project_rules.md"}
 
 
 def strip_js_comments(code):
@@ -151,8 +151,19 @@ def minify_html(html):
     return '\n'.join(out)
 
 
+def minify_css(css):
+    """Basic CSS minification: remove comments, remove extra whitespace."""
+    # Remove CSS comments: /* ... */
+    css = re.sub(r'/\*.*?\*/', '', css, flags=re.DOTALL)
+    # Remove spaces around selectors, braces, colons, semi-colons
+    css = re.sub(r'\s*([{\};:,])\s*', r'\1', css)
+    # Replace multiple spaces with a single space
+    css = re.sub(r'\s+', ' ', css)
+    return css.strip()
+
+
 def process_file(src_path, dst_path):
-    """Process a single file: minify JS/HTML or copy as-is."""
+    """Process a single file: minify JS/HTML/CSS or copy as-is."""
     ext = os.path.splitext(src_path)[1].lower()
 
     if ext == '.js':
@@ -180,6 +191,19 @@ def process_file(src_path, dst_path):
         saved = original_size - new_size
         if saved > 100:
             print(f"  HTML {os.path.basename(src_path):30s} {original_size:>8,} -> {new_size:>8,}  (saved {saved:,} bytes)")
+        return original_size, new_size
+
+    elif ext == '.css':
+        with open(src_path, 'r', encoding='utf-8', errors='replace') as f:
+            css = f.read()
+        original_size = len(css.encode('utf-8'))
+        css = minify_css(css)
+        new_size = len(css.encode('utf-8'))
+        with open(dst_path, 'w', encoding='utf-8') as f:
+            f.write(css)
+        saved = original_size - new_size
+        if saved > 100:
+            print(f"  CSS  {os.path.basename(src_path):30s}  {original_size:>8,} -> {new_size:>8,}  (saved {saved:,} bytes)")
         return original_size, new_size
 
     else:
@@ -269,6 +293,110 @@ def build_target(target_name, is_firefox=False):
     print(f"{'=' * 60}\n")
 
 
+def check_version_and_backup():
+    # Detect if we should run interactively or skip prompting
+    if len(sys.argv) > 1 and sys.argv[1] in ("--skip-prompt", "--yes", "-y"):
+        return
+
+    # Path to manifest.json
+    manifest_path = os.path.join(SRC_DIR, "manifest.json")
+    if not os.path.exists(manifest_path):
+        return
+
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except Exception as e:
+        print(f"Error reading manifest.json: {e}")
+        return
+
+    current_version = manifest.get("version", "6.8.0")
+    
+    # Calculate the next version number
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)$", current_version)
+    if match:
+        major, minor, patch = match.groups()
+        next_version = f"{major}.{minor}.{int(patch) + 1}"
+    else:
+        next_version = current_version + ".1"
+
+    # Ask the user
+    try:
+        ans = input(f"Would you like to bump the version from {current_version} to {next_version} and create a backup of the old code? (y/n) [n]: ").strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        print("\nBuild cancelled.")
+        sys.exit(0)
+
+    if ans in ("y", "yes"):
+        parent_dir = os.path.dirname(SRC_DIR)
+        backup_root = os.path.join(parent_dir, "backup")
+        
+        # Ensure D:\Anti Gravity\FLOW\backup exists
+        os.makedirs(backup_root, exist_ok=True)
+        
+        backup_folder = os.path.join(backup_root, f"flow-source-backup-v{current_version}")
+        
+        if os.path.exists(backup_folder):
+            print(f"Backup folder {backup_folder} already exists. Overwriting...")
+            shutil.rmtree(backup_folder)
+            
+        print(f"Creating backup of old version {current_version}...")
+        
+        # Helper to ignore build output, git files, and packages in the backup
+        def ignore_patterns(path, names):
+            ignored = []
+            for name in names:
+                if name in SKIP or name == "backup":
+                    ignored.append(name)
+            return ignored
+            
+        try:
+            shutil.copytree(SRC_DIR, backup_folder, ignore=ignore_patterns)
+            
+            # Create a simple instruction file on how to restore
+            readme_path = os.path.join(backup_folder, "RESTORE_INSTRUCTIONS.txt")
+            with open(readme_path, "w", encoding="utf-8") as rf:
+                rf.write(f"FocusFlow Backup - Version {current_version}\n")
+                rf.write("=" * 40 + "\n\n")
+                rf.write("How to restore this version:\n")
+                rf.write("1. Delete or rename the active 'flow-source' directory.\n")
+                rf.write(f"2. Copy this folder ('flow-source-backup-v{current_version}') to the parent folder.\n")
+                rf.write("3. Rename the copied folder back to 'flow-source'.\n")
+            print("Backup created successfully.")
+        except Exception as e:
+            print(f"Warning: Failed to create backup: {e}")
+            
+        # Update manifest.json with next version
+        manifest["version"] = next_version
+        try:
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump(manifest, f, indent=2)
+            print(f"Version successfully updated to {next_version} in manifest.json.")
+        except Exception as e:
+            print(f"Error updating manifest.json: {e}")
+            sys.exit(1)
+
+
 if __name__ == "__main__":
-    build_target("focusflow-dist", is_firefox=False)
-    build_target("focusflow-firefox", is_firefox=True)
+    check_version_and_backup()
+    
+    # Detect if we should run interactively or skip prompting
+    skip_prompt = len(sys.argv) > 1 and sys.argv[1] in ("--skip-prompt", "--yes", "-y")
+    
+    should_build = False
+    if skip_prompt:
+        should_build = True
+    else:
+        try:
+            ans = input("Would you like to compile/build the Chrome (dist) and Firefox folders now? (y/n) [n]: ").strip().lower()
+            if ans in ("y", "yes"):
+                should_build = True
+        except (KeyboardInterrupt, EOFError):
+            print("\nBuild process exited.")
+            sys.exit(0)
+            
+    if should_build:
+        build_target("focusflow-dist", is_firefox=False)
+        build_target("focusflow-firefox", is_firefox=True)
+    else:
+        print("Skipping distribution builds. Your source code changes are saved in 'flow-source'.")

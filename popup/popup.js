@@ -23,16 +23,6 @@ async function promptPinIfEnabled(e) {
     return !t.settings?.passcodeHash || !1 === t.settings[e] || await showPass()
 }
 
-function getEffectiveCat(e) {
-    if (siteCats[e]) return siteCats[e];
-    for (var t = e.split("."), s = 1; s < t.length - 1; s++) {
-        var a = t.slice(s).join(".");
-        if (siteCats[a]) return siteCats[a]
-    }
-    if (AUTO_CATEGORIES[e]) return AUTO_CATEGORIES[e];
-    var n = t.length > 2 ? t.slice(1).join(".") : e;
-    return AUTO_CATEGORIES[n] ? AUTO_CATEGORIES[n] : "uncategorized"
-}
 document.addEventListener("keydown", e => {
     const t = $("pcOverlay");
     t && !t.classList.contains("hide") && (e.key >= "0" && e.key <= "9" ? (e.preventDefault(), e.stopPropagation(), pcBuf.length < 6 && (pcBuf += e.key, updDots())) : "Backspace" === e.key ? (e.preventDefault(), e.stopPropagation(), pcBuf = pcBuf.slice(0, -1), updDots()) : "Enter" === e.key ? (e.preventDefault(), e.stopPropagation(), pcBuf.length >= 4 && $("pcok").click()) : "Escape" === e.key && $("pccancel") && !$("pccancel").classList.contains("hide") && (e.preventDefault(), e.stopPropagation(), $("pccancel").click()))
@@ -52,6 +42,17 @@ $("pcok") && $("pcok").addEventListener("click", async () => {
         await hashPin(pcBuf) === (e.settings || {}).passcodeHash ? ($("pcOverlay").classList.add("hide"), pcRes && pcRes(!0)) : ($("pcerr") && $("pcerr").classList.remove("hide"), pcBuf = "", updDots())
     }
 });
+
+function getEffectiveCat(e) {
+    if (siteCats[e]) return siteCats[e];
+    for (var t = e.split("."), s = 1; s < t.length - 1; s++) {
+        var a = t.slice(s).join(".");
+        if (siteCats[a]) return siteCats[a]
+    }
+    if (AUTO_CATEGORIES[e]) return AUTO_CATEGORIES[e];
+    var n = t.length > 2 ? t.slice(1).join(".") : e;
+    return AUTO_CATEGORIES[n] ? AUTO_CATEGORIES[n] : "uncategorized"
+}
 $("btn-analytics") && $("btn-analytics").addEventListener("click", () => chrome.tabs.create({
     url: chrome.runtime.getURL("dashboard/index.html#analytics")
 }));
@@ -64,7 +65,7 @@ $("btn-theme") && $("btn-theme").addEventListener("click", async function () {
     let t = "dark";
     "dark" !== e.theme && e.theme ? "light" === e.theme && (t = "cinematic") : t = "light", await sLocal({
         theme: t
-    }), applyTheme()
+    }), applyTheme("theme-icon")
 });
 document.querySelectorAll(".ttab").forEach(function (e) {
     e.addEventListener("click", function () {
@@ -80,6 +81,8 @@ document.querySelectorAll(".ttab").forEach(function (e) {
         loadViewData().then(() => {
             t && t.classList.add("fade-in");
             s && "today" === currentView && s.classList.add("fade-in");
+            const totWid = $("total-widgets");
+            totWid && "total" === currentView && totWid.classList.add("fade-in");
         });
     })
 });
@@ -140,8 +143,8 @@ async function checkCurrentTabForGranularRules() {
                 let n = !0 === t[e.id] ? "checked" : "";
                 sHTML += `
             <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 0;">
-              <span style="font-size:13px;font-weight:600;color:var(--tx2);flex:1;">${e.label}</span>
-              <label class="tog"><input type="checkbox" class="g-cb" data-d="${a}" data-r="${e.id}" ${n}><span class="ttrack"></span></label>
+              <span style="font-size:13px;font-weight:600;color:var(--tx2);flex:1;">${escHTML(e.label)}</span>
+              <label class="tog"><input type="checkbox" class="g-cb" data-d="${escHTML(a)}" data-r="${escHTML(e.id)}" ${n}><span class="ttrack"></span></label>
             </div>
           `;
             });
@@ -228,12 +231,14 @@ async function loadViewData() {
         a = {};
     if ("today" === currentView) {
         $("today-widgets") && ($("today-widgets").style.display = "block");
+        $("total-widgets") && ($("total-widgets").style.display = "none");
         var n = await msg("STATS_GET_DAY", {
             day: todayKey()
         });
         s = n && n.data || {}, a = s.sites || {}
     } else {
         $("today-widgets") && ($("today-widgets").style.display = "none");
+        $("total-widgets") && ($("total-widgets").style.display = "block");
         // FF v6.17: O(1) read of running totals instead of scanning every IDB day.
         var o = await msg("STATS_GET_ALLTIME_TOTALS");
         a = (o && o.allTimeTotals) || {};
@@ -245,7 +250,7 @@ async function loadViewData() {
         });
     }
     var i = computeTotals(s);
-    renderDonut(s, i), renderDynamicList(a, i), "today" === currentView && loadWeeklyGoal()
+    renderDonut(s, i), renderDynamicList(a, i), "total" === currentView && loadWeeklyGoal()
 }
 
 
@@ -327,7 +332,7 @@ function renderDonut(e, t) {
 }
 
 function buildCatSelector(e, t, s) {
-    var a = `<select class="sel-cat" data-domain="${e}" style="font-size:10px; padding:4px 8px; border-radius:999px; background:${s}22; color:${s}; border:1px solid ${s}55; outline:none; cursor:pointer; font-weight:800; text-transform:uppercase; appearance:none; text-align:center;">`;
+    var a = `<select class="sel-cat" data-domain="${escHTML(e)}" style="font-size:10px; padding:4px 8px; border-radius:999px; background:${s}22; color:${s}; border:1px solid ${s}55; outline:none; cursor:pointer; font-weight:800; text-transform:uppercase; appearance:none; text-align:center;">`;
     return ["productivity", "learning", "distraction", "communication", "uncategorized"].forEach(e => {
         a += `<option value="${e}" ${e === t ? "selected" : ""} style="background:var(--bg2); color:var(--tx); text-transform:capitalize;">${CAT_LABELS[e]}</option>`
     }), a += "</select>"
@@ -337,27 +342,49 @@ function renderDynamicList(e, t) {
     var s = $("dynamic-list");
     if (s && (s.innerHTML = "", t.total)) {
         var a = Object.entries(e).sort((e, t) => t[1] - e[1]);
-        if ("today" === currentView) {
-            s.innerHTML = '<div class="list-hdr">All Sites Today (Click Tag to Edit)</div>';
-            var n = s._showAll || !1;
-            (n ? a : a.slice(0, 10)).forEach(([e, t]) => {
-                var a = getEffectiveCat(e),
-                    n = CAT_COLORS[a] || "#555555";
-                s.innerHTML += `<div class="siterow"><span class="sitedom">${getFav(e)}${e}</span>${buildCatSelector(e, a, n)}<span class="sitetm num">${fmt(t)}</span></div>`
-            }), a.length > 10 && !n && (s.innerHTML += '<div style="text-align:center;padding:12px"><button id="show-all-btn" class="bs bs-sm">Show all ' + a.length + " sites</button></div>", setTimeout(() => {
-                var e = document.getElementById("show-all-btn");
-                e && e.addEventListener("click", () => {
+        var n = s._showAll || !1;
+        var isToday = "today" === currentView;
+        s.innerHTML = '<div class="list-hdr">' + (isToday ? "All Sites Today" : "All Time Site Usage") + ' (Click Tag to Edit)</div>';
+        
+        (n ? a : a.slice(0, 10)).forEach(([e, t]) => {
+            var a = getEffectiveCat(e),
+                n = CAT_COLORS[a] || "#555555";
+            s.innerHTML += `<div class="siterow"><span class="sitedom">${getFav(e)}${escHTML(e)}</span>${buildCatSelector(e, a, n)}<span class="sitetm num">${fmt(t)}</span></div>`
+        });
+        if (a.length > 10 && !n) {
+            const isFirefox = navigator.userAgent.includes("Firefox") || chrome.runtime.getURL("").startsWith("moz-extension:");
+            const rateUrl = isFirefox 
+                ? "https://addons.mozilla.org/en-US/firefox/addon/focusflow-website-blocker/" 
+                : "https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic";
+            let overlayHtml = `
+              <div id="feedback-overlay" style="display:flex; justify-content:center; gap:8px; align-items:center; width:100%; background:var(--bg2); border-radius:12px; padding:4px;">
+                <a href="${rateUrl}" target="_blank" class="bs bs-sm" style="color:var(--amber); border-color:var(--amber-bd); background:var(--amber-bg); text-decoration:none; padding:8px; font-size:11px; white-space:nowrap; flex:1; justify-content:center;">⭐ Rate Us</a>
+                <a href="https://docs.google.com/forms/d/e/1FAIpQLSdWc7nYA3D1BqFtqtphDzdJ8UKa4DVw5WteEaAJsQlYAT1Rfg/viewform?usp=dialog" target="_blank" class="bs bs-sm" style="color:var(--blue); border-color:var(--bd); background:var(--bg3); text-decoration:none; padding:8px; font-size:11px; white-space:nowrap; flex:1; justify-content:center;">💬 Feedback</a>
+                <button id="feedback-close-btn" class="icon-btn" style="width:24px;height:24px;border:none;flex-shrink:0;">✕</button>
+              </div>
+            `;
+            s.innerHTML += `
+            <div style="text-align:center;padding:12px;display:flex;justify-content:center;">
+              <div id="feedback-overlay-container" style="width:100%;">${overlayHtml}</div>
+              <button id="show-all-btn" class="bs bs-sm" style="display:none;">Show all ${a.length} sites</button>
+            </div>
+            `;
+            setTimeout(() => {
+                var btn = document.getElementById("show-all-btn");
+                if (btn) btn.addEventListener("click", () => {
                     s._showAll = !0, loadViewData()
-                })
-            }, 0))
-        } else {
-            s.innerHTML = '<div class="list-hdr">All Time Site Usage (Click Tag to Edit)</div>';
-            a.forEach(([e, t]) => {
-                var a = getEffectiveCat(e),
-                    n = CAT_COLORS[a] || "#555555";
-                s.innerHTML += `<div class="siterow"><span class="sitedom">${getFav(e)}${e}</span>${buildCatSelector(e, a, n)}<span class="sitetm num">${fmt(t)}</span></div>`
-            })
+                });
+                var closeBtn = document.getElementById("feedback-close-btn");
+                var overlay = document.getElementById("feedback-overlay-container");
+                if (closeBtn && overlay && btn) {
+                    closeBtn.addEventListener("click", () => {
+                        overlay.style.display = 'none';
+                        btn.style.display = 'inline-flex';
+                    });
+                }
+            }, 0);
         }
+        
         s.querySelectorAll(".sel-cat").forEach(e => {
             e.addEventListener("change", async e => {
                 var t = e.target.getAttribute("data-domain"),
@@ -367,7 +394,7 @@ function renderDynamicList(e, t) {
                     category: s
                 }), loadViewData()
             })
-        })
+        });
     }
 }
 async function loadWeeklyGoal() {
@@ -390,7 +417,7 @@ function renderFocus(e) {
         s = $("focus-card");
     s && void 0 !== s._lastPhase && s._lastPhase !== e.phase && (s.classList.add("phase-change"), setTimeout(() => s.classList.remove("phase-change"), 600)), s && (s._lastPhase = e.phase), s && (s.className = "focus-section " + (t ? "work-active" : "break-active")), $("fr-fill") && ($("fr-fill").className = "fr-fill " + (t ? "work" : "brk"));
     var a = t ? 60 * window._focusWorkMins : "long_break" === e.phase ? 60 * window._focusLongBreakMins : 60 * window._focusBreakMins;
-    $("fr-fill") && $("fr-fill").setAttribute("stroke-dashoffset", (FR_C * Math.max(0, 1 - Math.min(1, (e.remaining || 0) / a))).toFixed(1)), $("fr-time") && ($("fr-time").textContent = fmtTimer(e.remaining || 0)), $("fr-cycles") && ($("fr-cycles").textContent = (e.cyclesCompleted || 0) + " done"), $("focus-phase") && ($("focus-phase").textContent = t ? "Work" : "long_break" === e.phase ? "Long Break" : "Short Break", $("focus-phase").className = "focus-phase " + (t ? "work" : "brk")), $("focus-title") && ($("focus-title").textContent = t ? "Deep work." : "long_break" === e.phase ? "Long break!" : "Short break."), $("focus-sub") && ($("focus-sub").textContent = (e.cyclesCompleted || 0) + " cycle" + (1 !== e.cyclesCompleted ? "s" : "") + " completed"), $("btn-start") && ($("btn-start").style.display = "none"), $("btn-stop") && ($("btn-stop").style.display = ""), $("btn-pause") && ($("btn-pause").style.display = "", $("btn-pause").textContent = e.paused ? "▶ Resume" : "⏸ Pause"), $("btn-skip") && ($("btn-skip").style.display = t ? "none" : ""), $("btn-focus-set") && ($("btn-focus-set").style.display = "none"), $("focus-set-panel") && ($("focus-set-panel").style.display = "none");
+    $("fr-fill") && $("fr-fill").setAttribute("stroke-dashoffset", (FR_C * Math.max(0, 1 - Math.min(1, (e.remaining || 0) / a))).toFixed(1)), $("fr-time") && ($("fr-time").textContent = fmtTimer(e.remaining || 0)), $("fr-cycles") && ($("fr-cycles").textContent = e.isSchedule ? "Active" : ((e.cyclesCompleted || 0) + " done")), $("focus-phase") && ($("focus-phase").textContent = e.isSchedule ? "Schedule" : (t ? "Work" : "long_break" === e.phase ? "Long Break" : "Short Break"), $("focus-phase").className = "focus-phase " + (e.isSchedule ? "work" : (t ? "work" : "brk"))), $("focus-title") && ($("focus-title").textContent = e.isSchedule ? "Deep work." : (t ? "Deep work." : "long_break" === e.phase ? "Long break!" : "Short break.")), $("focus-sub") && ($("focus-sub").textContent = e.isSchedule ? "Scheduled Session" : ((e.cyclesCompleted || 0) + " cycle" + (1 !== e.cyclesCompleted ? "s" : "") + " completed")), $("btn-start") && ($("btn-start").style.display = "none"), $("btn-stop") && ($("btn-stop").style.display = ""), $("btn-pause") && ($("btn-pause").style.display = "", $("btn-pause").textContent = e.paused ? "▶ Resume" : "⏸ Pause"), $("btn-skip") && ($("btn-skip").style.display = t ? "none" : ""), $("btn-focus-set") && ($("btn-focus-set").style.display = "none"), $("focus-set-panel") && ($("focus-set-panel").style.display = "none");
     var n = $("pause-warning");
     if (n)
         if (e.paused && e.active) {
@@ -440,29 +467,27 @@ $("p-close-focus") && $("p-close-focus").addEventListener("click", () => {
     $("focus-set-panel") && ($("focus-set-panel").style.display = "none"), $("focus-card") && ($("focus-card").style.minHeight = "")
 });
 $("p-save-focus") && $("p-save-focus").addEventListener("click", async () => {
-    var e = (await gSync(["settings"])).settings || {},
-        t = parseInt($("p-sw").value);
-    e.focusWork = !isNaN(t) && t >= 1 ? t : 25;
+    var t = parseInt($("p-sw").value);
+    var workVal = !isNaN(t) && t >= 1 ? t : 25;
     var s = parseInt($("p-sb").value);
-    e.focusBreak = !isNaN(s) && s >= 0 ? s : 5;
+    var breakVal = !isNaN(s) && s >= 0 ? s : 5;
     var a = parseInt($("p-sl").value);
-    e.focusLongBreak = !isNaN(a) && a >= 0 ? a : 15;
+    var longVal = !isNaN(a) && a >= 0 ? a : 15;
     var n = parseInt($("p-sc").value);
-    e.focusCycles = !isNaN(n) && n >= 1 ? n : 4, await sSync({
-        settings: e
-    });
+    var cyclesVal = !isNaN(n) && n >= 1 ? n : 4;
+
     var pres = await msg("PRESETS_GET");
     if (pres && pres.presets) {
         var ap = pres.presets.find(p => p.id === pres.activeId) || pres.presets[0];
         if (ap) {
-            ap.work = e.focusWork;
-            ap.brk = e.focusBreak;
-            ap.longBrk = e.focusLongBreak; // Bug fix #7: removed dead ap.long (no preset reads it)
-            ap.cycles = e.focusCycles;
+            ap.work = workVal;
+            ap.brk = breakVal;
+            ap.longBrk = longVal;
+            ap.cycles = cyclesVal;
             await msg("PRESETS_SAVE", { presets: pres.presets });
         }
     }
-    window._focusWorkMins = e.focusWork, window._focusBreakMins = e.focusBreak, window._focusLongBreakMins = e.focusLongBreak, window._focusCycles = e.focusCycles, $("focus-set-panel") && ($("focus-set-panel").style.display = "none"), $("focus-card") && ($("focus-card").style.minHeight = ""), loadFocus()
+    window._focusWorkMins = workVal, window._focusBreakMins = breakVal, window._focusLongBreakMins = longVal, window._focusCycles = cyclesVal, $("focus-set-panel") && ($("focus-set-panel").style.display = "none"), $("focus-card") && ($("focus-card").style.minHeight = ""), loadFocus()
 });
 chrome.runtime.onMessage.addListener(e => {
     "FOCUS_TICK" === e.type && renderFocus(e.focusState)
@@ -481,47 +506,15 @@ function startSmoothFocusTick(e) {
 renderFocus = function (e) {
     _origRF(e), e && e.active && !e.paused && e.phaseEndsAt ? startSmoothFocusTick(e) : _focusTick && (clearInterval(_focusTick), _focusTick = null)
 };
-$("pcOverlay") && $("pcOverlay").classList.add("hide");
-
-function startFeedbackCycle() {
-    var e = $("rate-us-link");
-    if (!e) return;
-    var state = 0;
-    const interval = setInterval(() => {
-        e.style.opacity = "0";
-        setTimeout(() => {
-            state = 1 - state;
-            if (state === 0) {
-                e.textContent = "⭐ Rate Us";
-                e.href = "https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic";
-                e.title = "Rate FocusFlow on the Edge Add-ons store";
-                e.style.color = "var(--amber)";
-                e.style.borderColor = "rgba(246,184,70,.3)";
-                e.style.background = "var(--amber-bg)";
-            } else {
-                e.textContent = "💡 Feedback";
-                e.href = "https://docs.google.com/forms/d/e/1FAIpQLSdWc7nYA3D1BqFtqtphDzdJ8UKa4DVw5WteEaAJsQlYAT1Rfg/viewform?usp=dialog";
-                e.title = "Submit Feature Requests & Bug Reports";
-                e.style.color = "var(--blue)";
-                e.style.borderColor = "rgba(92,156,252,.3)";
-                e.style.background = "var(--blue-bg)";
-            }
-            e.style.opacity = "1";
-        }, 200);
-    }, 4000);
-    window.addEventListener("unload", () => clearInterval(interval));
-}
 
 async function initPopup() {
-    var e = (await gSync(["settings"])).settings || {};
-    // FF v5.0: prefer active preset's durations for the popup display.
     var pres = await msg("PRESETS_GET");
     var ap = null;
     if (pres && pres.presets) ap = pres.presets.find(p => p.id === pres.activeId) || pres.presets[0];
-    window._focusWorkMins = ap ? ap.work : (e.focusWork ?? 25);
-    window._focusBreakMins = ap ? ap.brk : (e.focusBreak ?? 5);
-    window._focusLongBreakMins = ap ? ap.longBrk : (e.focusLongBreak ?? 15);
-    window._focusCycles = ap ? ap.cycles : (e.focusCycles ?? 4);
+    window._focusWorkMins = ap ? ap.work : 25;
+    window._focusBreakMins = ap ? ap.brk : 5;
+    window._focusLongBreakMins = ap ? ap.longBrk : 15;
+    window._focusCycles = ap ? ap.cycles : 4;
     renderPresetRail(pres);
     await Promise.all([loadViewData(), loadFocus(), checkCurrentTabForGranularRules()]);
 
@@ -545,7 +538,7 @@ async function initPopup() {
             }
         }
     } catch (e) { }
-    startFeedbackCycle();
+
 }
 
 initPopup();

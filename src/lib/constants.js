@@ -58,7 +58,7 @@
       { id: "rd-feed", label: "Hide Home Feed" },
       { id: "rd-comments", label: "Hide Comments" },
       { id: "rd-popular", label: "Hide Popular, News, Explore" },
-      { id: "rd-related", label: "Hide Related Posts" },
+      { id: "rd-recent-communities", label: "Hide Recent and Communities" },
     ],
     "instagram.com": [
       { id: "ig-reels", label: "Hide Reels link" },
@@ -134,14 +134,14 @@
 
   root.CSS_MAP = {
     "bw-mode": 'html { filter: grayscale(1) !important; }',
-    "yt-shorts": 'ytd-reel-shelf-renderer, ytd-rich-section-renderer:has(a[href*="/shorts" i]), ytd-rich-item-renderer:has(a[href*="/shorts" i]), ytd-video-renderer:has(a[href*="/shorts" i]), ytd-grid-video-renderer:has(a[href*="/shorts" i]), ytd-reel-item-renderer, ytd-shorts, ytd-reel-video-renderer, yt-tab-shape[tab-title="Shorts" i], yt-tab-group-shape a[href*="/shorts" i], yt-navigation-item-view-model:has(a[href*="/shorts" i]), a[title="Shorts" i], a[title^="Shorts" i], a[href*="/shorts" i] { display: none !important; }',
+    "yt-shorts": 'ytd-reel-shelf-renderer, ytd-rich-section-renderer:has(a[href*="/shorts" i]), ytd-rich-item-renderer:has(a[href*="/shorts" i]), ytd-video-renderer:has(a[href*="/shorts" i]), ytd-grid-video-renderer:has(a[href*="/shorts" i]), ytd-reel-item-renderer, ytd-shorts, ytd-reel-video-renderer, yt-tab-shape[tab-title="Shorts" i], yt-tab-group-shape a[href*="/shorts" i], yt-navigation-item-view-model:has(a[href*="/shorts" i]), a[title="Shorts" i], a[title^="Shorts" i] { display: none !important; }',
     "yt-recom": 'ytd-browse[page-subtype="home"] { display: none !important; }',
     "yt-related": '#secondary, ytd-watch-next-secondary-results-renderer, ytd-compact-video-renderer { display: none !important; }',
     "yt-comments": "#comments { display: none !important; }",
     "rd-feed": "shreddit-feed { display: none !important; }",
     "rd-comments": 'shreddit-comment-tree, [id^="comment-tree"], faceplate-batch shreddit-comment, .commentarea { display: none !important; }',
-    "rd-popular": 'a[href*="/r/popular"], a[href*="/r/news"], a[href*="/explore"], [data-testid="subreddit-sidebar"] a[href*="/r/popular"], reddit-sidebar-nav [slot="navigation"] a[href*="/r/popular"], [aria-label="Popular" i], [aria-label="Explore" i], shreddit-feed[feed-name="popular"], shreddit-feed[feed-name="news"], [data-testid="trending-searches-container"], faceplate-tracker[source="trending_searches"], reddit-search-large [aria-label*="Trending" i] { display: none !important; }',
-    "rd-related": 'shreddit-related-posts, [data-testid="related-posts"], [slot="related-posts"] { display: none !important; }',
+    "rd-popular": '#popular-posts, #explore-communities, #news-posts, #news-communities, left-nav-top-section > *:nth-child(2), left-nav-top-section > *:nth-child(3), left-nav-top-section > *:nth-child(4), [noun="popular"], [noun="news"], [noun="explore"], a[href*="/r/popular"], a[href*="/r/news"], a[href*="/explore"] { display: none !important; }',
+    "rd-recent-communities": 'reddit-recent-pages, #communities_section { display: none !important; }',
     "ig-reels": 'a[href="/reels/"], a[href^="/reels"] { display: none !important; }',
     "ig-home": 'a[href="/"][role="link"] { display: none !important; }',
     "ig-explore": 'a[href="/explore/"], a[href^="/explore"] { display: none !important; }',
@@ -160,4 +160,18 @@
 
   root.FALLBACK_ICON =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='2' y1='12' x2='22' y2='12'%3E%3C/line%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1 4-10z'%3E%3C/path%3E%3C/svg%3E";
+
+  root.QUOTES = [
+    '"Future you is watching. Make them proud."',
+    '"Discipline is choosing between what you want now and what you want most."',
+    '"Deep work beats busy work."',
+    '"Small steps every day build big results."',
+    '"You don\'t need more time. You need more focus."',
+    '"What you do today matters more than you think."',
+    '"The obstacle is the way."',
+    '"Suffer the pain of discipline or suffer the pain of regret."',
+    '"Your focus determines your reality."',
+    '"Be so good they cannot ignore you."',
+    '"Discipline equals freedom."'
+  ];
 })(typeof self !== "undefined" ? self : this);
