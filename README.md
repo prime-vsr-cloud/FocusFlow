@@ -109,10 +109,10 @@ See [CHANGELOG.md](./CHANGELOG.md) for a full list of changes across all version
 There are several ways to contribute to Flow:
 
 #### 1. Report Bugs & Request Features
-Describe your problem or idea in [GitHub Issues](https://github.com/vishwa-vsr/FocusFlow/issues).
+Describe your problem or idea in [GitHub Issues](https://github.com/vishwa-vsr/Flow/issues).
 
 #### 2. Help Translate
-We are adding multi-language support. If you speak Hindi, Spanish, or another language, we'd love your help!
+We plan to add multi-language support in the future. If you want to help translate Flow into your native language, please start a thread in the [Discussions](https://github.com/vishwa-vsr/Flow/discussions) tab!
 
 #### 3. Rate 5 Stars ⭐
 Leave a review on [Firefox](https://addons.mozilla.org/en-US/firefox/addon/flow-website-manager/) or [Edge](https://microsoftedge.microsoft.com/addons/detail/jlcdkibfogehgkbhkkkglifbanenkmic). It's simple and incredibly helpful!
